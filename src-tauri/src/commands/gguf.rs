@@ -53,9 +53,11 @@ pub async fn init_gguf_model_from_file(
         },
         Err(e) => {
             error!("GGUF 模型初始化失败: {}", e);
+            // 使用 format!("{:?}", e) 来显示完整的错误链
+            let error_msg = format!("GGUF 模型初始化失败: {}", e);
             Ok(InitModelResponse {
                 success: false,
-                message: format!("GGUF 模型初始化失败: {}", e),
+                message: error_msg,
             })
         },
     }

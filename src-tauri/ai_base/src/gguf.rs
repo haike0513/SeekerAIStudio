@@ -72,11 +72,30 @@ impl GGUFInferenceEngine {
 
         // 读取 GGUF 内容
         let ct = gguf_file::Content::read(&mut file)
-            .context("无法读取 GGUF 文件内容")?;
+            .with_context(|| format!("无法读取 GGUF 文件内容，文件路径: {:?}", config.model_path))?;
 
         // 加载模型权重
         let model = ModelWeights::from_gguf(ct, &mut file, &device)
-            .context("无法从 GGUF 文件加载模型权重")?;
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "无法从 GGUF 文件加载模型权重\n\
+                    文件路径: {:?}\n\
+                    设备: {:?}\n\
+                    原始错误: {}\n\
+                    \n\
+                    这可能是因为:\n\
+                    1. GGUF 文件格式不兼容（例如，Qwen3-VL 是视觉语言模型，可能不支持标准的 Llama 量化格式）\n\
+                    2. 文件损坏或不完整\n\
+                    3. 文件路径不正确\n\
+                    4. 设备初始化失败\n\
+                    \n\
+                    请检查:\n\
+                    - 文件是否存在且可读\n\
+                    - 文件是否为有效的 GGUF 格式\n\
+                    - 模型架构是否与 quantized_llama::ModelWeights 兼容",
+                    config.model_path, device, e
+                )
+            })?;
 
         // 加载 tokenizer（如果提供了路径）
         let tokenizer = if let Some(ref tokenizer_path) = config.tokenizer_path {

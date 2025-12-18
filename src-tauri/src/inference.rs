@@ -195,11 +195,18 @@ impl GGUFInferenceService {
             ..Default::default()
         };
 
-        println!("正在加载 GGUF 模型: {:?}", model_path);
+        tracing::info!("正在加载 GGUF 模型: {:?}", model_path);
+        tracing::info!("模型文件是否存在: {}", model_path.exists());
+        if model_path.exists() {
+            if let Ok(metadata) = std::fs::metadata(&model_path) {
+                tracing::info!("模型文件大小: {} 字节", metadata.len());
+            }
+        }
+        
         let engine = GGUFInferenceEngine::from_file(config)
-            .with_context(|| format!("加载 GGUF 模型失败: {:?}", model_path))?;
-
-        println!("GGUF 模型加载成功");
+            .with_context(|| format!("加载 GGUF 模型失败，模型路径: {:?}", model_path))?;
+        
+        tracing::info!("GGUF 模型加载成功");
         let mut guard = self.engine.lock().unwrap();
         *guard = Some(engine);
 

@@ -83,7 +83,7 @@ export default function InferencePanel() {
   const defaultGgufModelPaths = createMemo(() => [
     { value: "", label: t("inference.selectDefaultPath") },
     { value: "models/Qwen3-VL-8B-Instruct-Q4_K_M.gguf", label: "Qwen3-VL-8B-Instruct-Q4_K_M.gguf" },
-    { value: "./models/smollm2-360m-instruct-q8_0.gguf", label: "SmolLM2-360M-Instruct (Q8_0)" },
+    { value: "models/mmproj-Qwen3-VL-8B-Instruct-F16.gguf", label: "mmproj-Qwen3-VL-8B-Instruct-F16" },
     { value: "./models/llama-2-7b-chat-q4_0.gguf", label: "Llama 2 7B Chat (Q4_0)" },
     { value: "./models/mistral-7b-instruct-v0.2-q4_0.gguf", label: "Mistral 7B Instruct (Q4_0)" },
     { value: "./models/qwen2.5-7b-instruct-q4_0.gguf", label: "Qwen2.5 7B Instruct (Q4_0)" },
