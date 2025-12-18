@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,14 @@ import { Slider, SliderTrack, SliderFill, SliderThumb } from "@/components/ui/sl
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckCircle2, Loader2 } from "lucide-solid";
 import { useI18n } from "@/lib/i18n";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem,
+  SelectPortal,
+  SelectTrigger, 
+  SelectValue
+} from "@/components/ui/select";
 
 interface InitModelRequest {
   model_path: string;
@@ -68,6 +76,29 @@ export default function InferencePanel() {
   const [ggufHfFilename, setGgufHfFilename] = createSignal("smollm2-360m-instruct-q8_0.gguf");
   const [ggufLoadFromHub, setGgufLoadFromHub] = createSignal(false);
   const [ggufModelLoaded, setGgufModelLoaded] = createSignal(false);
+  const [ggufModelPathCustom, setGgufModelPathCustom] = createSignal(false);
+  const [ggufTokenizerPathCustom, setGgufTokenizerPathCustom] = createSignal(false);
+
+  // 默认的 GGUF 模型路径选项
+  const defaultGgufModelPaths = createMemo(() => [
+    { value: "", label: t("inference.selectDefaultPath") },
+    { value: "models/Qwen3-VL-8B-Instruct-Q4_K_M.gguf", label: "Qwen3-VL-8B-Instruct-Q4_K_M.gguf" },
+    { value: "./models/smollm2-360m-instruct-q8_0.gguf", label: "SmolLM2-360M-Instruct (Q8_0)" },
+    { value: "./models/llama-2-7b-chat-q4_0.gguf", label: "Llama 2 7B Chat (Q4_0)" },
+    { value: "./models/mistral-7b-instruct-v0.2-q4_0.gguf", label: "Mistral 7B Instruct (Q4_0)" },
+    { value: "./models/qwen2.5-7b-instruct-q4_0.gguf", label: "Qwen2.5 7B Instruct (Q4_0)" },
+    { value: "custom", label: t("inference.customPath") },
+  ]);
+
+  // 默认的 Tokenizer 路径选项
+  const defaultTokenizerPaths = createMemo(() => [
+    { value: "", label: t("inference.selectDefaultPath") },
+    { value: "./tokenizers/smollm2-360m-instruct", label: "SmolLM2-360M-Instruct Tokenizer" },
+    { value: "./tokenizers/llama-2-7b-chat", label: "Llama 2 7B Chat Tokenizer" },
+    { value: "./tokenizers/mistral-7b-instruct", label: "Mistral 7B Instruct Tokenizer" },
+    { value: "./tokenizers/qwen2.5-7b-instruct", label: "Qwen2.5 7B Instruct Tokenizer" },
+    { value: "custom", label: t("inference.customPath") },
+  ]);
 
   // 检查模型状态
   async function checkModelStatus() {
@@ -395,13 +426,68 @@ export default function InferencePanel() {
                 <div class="space-y-2">
                   <Label>{t("inference.modelPath")}:</Label>
                   <div class="flex gap-2">
-                    <Input
-                      type="text"
-                      value={ggufModelPath()}
-                      onInput={(e) => setGgufModelPath(e.currentTarget.value)}
-                      placeholder={t("inference.placeholder.ggufModelPath")}
-                      class="flex-1"
-                    />
+                    <Show 
+                      when={ggufModelPathCustom()} 
+                      fallback={
+                        <Select
+                          options={defaultGgufModelPaths()}
+                          value={(() => {
+                            const currentPath = ggufModelPath();
+                            if (!currentPath) return "";
+                            const found = defaultGgufModelPaths().find(p => p.value === currentPath);
+                            return found ? currentPath : "custom";
+                          })()}
+                          onChange={(value) => {
+                            if (value === null || value === undefined) return;
+                            const pathValue = typeof value === 'object' && 'value' in value 
+                              ? (value as any).value 
+                              : value;
+                            if (pathValue === "custom") {
+                              setGgufModelPathCustom(true);
+                              if (!ggufModelPath()) {
+                                setGgufModelPath("");
+                              }
+                            } else if (pathValue) {
+                              setGgufModelPath(pathValue as string);
+                              setGgufModelPathCustom(false);
+                            }
+                          }}
+                          placeholder={t("inference.placeholder.ggufModelPath")}
+                          optionValue={"value" as any}
+                          optionTextValue={"label" as any}
+                          itemComponent={(props) => {
+                            const option = props.item.rawValue as unknown as { value: string; label: string };
+                            return (
+                              <SelectItem item={props.item}>
+                                {option.label}
+                              </SelectItem>
+                            );
+                          }}
+                          class="flex-1"
+                        >
+                          <SelectTrigger class="flex-1">
+                            <SelectValue<string>>{() => {
+                              const currentPath = ggufModelPath();
+                              if (!currentPath) return t("inference.selectDefaultPath") as string;
+                              const selected = defaultGgufModelPaths().find(p => p.value === currentPath);
+                              if (selected) return selected.label;
+                              return t("inference.customPath") as string;
+                            }}</SelectValue>
+                          </SelectTrigger>
+                          <SelectPortal>
+                            <SelectContent />
+                          </SelectPortal>
+                        </Select>
+                      }
+                    >
+                      <Input
+                        type="text"
+                        value={ggufModelPath()}
+                        onInput={(e) => setGgufModelPath(e.currentTarget.value)}
+                        placeholder={t("inference.placeholder.ggufModelPath")}
+                        class="flex-1"
+                      />
+                    </Show>
                     <Button onClick={() => selectFile("model")} variant="outline">
                       {t("inference.select")}
                     </Button>
@@ -435,13 +521,68 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.tokenizerPathOptional")}:</Label>
                 <div class="flex gap-2">
-                  <Input
-                    type="text"
-                    value={ggufTokenizerPath()}
-                    onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
-                    placeholder={t("inference.placeholder.tokenizerPathOptional")}
-                    class="flex-1"
-                  />
+                  <Show 
+                    when={ggufTokenizerPathCustom()} 
+                    fallback={
+                      <Select
+                        options={defaultTokenizerPaths()}
+                        value={(() => {
+                          const currentPath = ggufTokenizerPath();
+                          if (!currentPath) return "";
+                          const found = defaultTokenizerPaths().find(p => p.value === currentPath);
+                          return found ? currentPath : "custom";
+                        })()}
+                        onChange={(value) => {
+                          if (value === null || value === undefined) return;
+                          const pathValue = typeof value === 'object' && 'value' in value 
+                            ? (value as any).value 
+                            : value;
+                          if (pathValue === "custom") {
+                            setGgufTokenizerPathCustom(true);
+                            if (!ggufTokenizerPath()) {
+                              setGgufTokenizerPath("");
+                            }
+                          } else if (pathValue) {
+                            setGgufTokenizerPath(pathValue as string);
+                            setGgufTokenizerPathCustom(false);
+                          }
+                        }}
+                        placeholder={t("inference.placeholder.tokenizerPathOptional")}
+                        optionValue={"value" as any}
+                        optionTextValue={"label" as any}
+                        itemComponent={(props) => {
+                          const option = props.item.rawValue as unknown as { value: string; label: string };
+                          return (
+                            <SelectItem item={props.item}>
+                              {option.label}
+                            </SelectItem>
+                          );
+                        }}
+                        class="flex-1"
+                      >
+                        <SelectTrigger class="flex-1">
+                          <SelectValue<string>>{() => {
+                            const currentPath = ggufTokenizerPath();
+                            if (!currentPath) return t("inference.selectDefaultPath") as string;
+                            const selected = defaultTokenizerPaths().find(p => p.value === currentPath);
+                            if (selected) return selected.label;
+                            return t("inference.customPath") as string;
+                          }}</SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                          <SelectContent />
+                        </SelectPortal>
+                      </Select>
+                    }
+                  >
+                    <Input
+                      type="text"
+                      value={ggufTokenizerPath()}
+                      onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
+                      placeholder={t("inference.placeholder.tokenizerPathOptional")}
+                      class="flex-1"
+                    />
+                  </Show>
                   <Button onClick={() => selectFile("tokenizer")} variant="outline">
                     {t("inference.select")}
                   </Button>

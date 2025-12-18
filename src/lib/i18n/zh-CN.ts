@@ -97,6 +97,8 @@ export default {
     pleaseProvideHFInfo: "请提供 HuggingFace 仓库和文件名",
     ggufNotSupportMultimodal: "GGUF 模型暂不支持多模态推理",
     error: "错误",
+    selectDefaultPath: "请选择默认路径",
+    customPath: "自定义路径",
     placeholder: {
       modelPath: "模型文件路径 (如: model.safetensors 或模型目录)",
       ggufModelPath: "GGUF 模型文件路径 (如: model.gguf)",

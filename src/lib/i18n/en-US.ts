@@ -97,6 +97,8 @@ export default {
     pleaseProvideHFInfo: "Please provide HuggingFace repository and filename",
     ggufNotSupportMultimodal: "GGUF model does not support multimodal inference yet",
     error: "Error",
+    selectDefaultPath: "Please select default path",
+    customPath: "Custom Path",
     placeholder: {
       modelPath: "Model file path (e.g., model.safetensors or model directory)",
       ggufModelPath: "GGUF model file path (e.g., model.gguf)",

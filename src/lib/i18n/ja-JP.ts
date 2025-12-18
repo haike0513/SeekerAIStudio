@@ -97,6 +97,8 @@ export default {
     pleaseProvideHFInfo: "HuggingFace リポジトリとファイル名を提供してください",
     ggufNotSupportMultimodal: "GGUF モデルはまだマルチモーダル推論をサポートしていません",
     error: "エラー",
+    selectDefaultPath: "デフォルトパスを選択してください",
+    customPath: "カスタムパス",
     placeholder: {
       modelPath: "モデルファイルパス (例: model.safetensors またはモデルディレクトリ)",
       ggufModelPath: "GGUF モデルファイルパス (例: model.gguf)",

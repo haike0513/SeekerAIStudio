@@ -1,9 +1,26 @@
 use crate::commands::common::*;
 use crate::inference::GGUFInferenceService;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::{debug, error, info};
 use tauri::State;
+
+/// 将路径转换为绝对路径
+fn to_absolute_path(path: &Path) -> Result<PathBuf, String> {
+    let abs_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        let current_dir = std::env::current_dir()
+            .map_err(|e| format!("无法获取当前工作目录: {}", e))?;
+        current_dir.join(path)
+    };
+    
+    // 尝试 canonicalize 以解析符号链接和规范化路径
+    // 如果文件不存在，至少返回绝对路径
+    abs_path.canonicalize()
+        .or_else(|_| Ok::<PathBuf, std::io::Error>(abs_path))
+        .map_err(|_| "无法规范化路径".to_string())
+}
 
 /// 从本地文件初始化 GGUF 模型
 #[tauri::command]
@@ -12,10 +29,19 @@ pub async fn init_gguf_model_from_file(
     request: InitGGUFFileRequest,
 ) -> Result<InitModelResponse, String> {
     info!("开始从本地文件初始化 GGUF 模型");
-    info!("模型路径: {}, Tokenizer 路径: {:?}", request.model_path, request.tokenizer_path);
+    info!("原始模型路径: {}, 原始 Tokenizer 路径: {:?}", request.model_path, request.tokenizer_path);
     
-    let model_path = PathBuf::from(&request.model_path);
-    let tokenizer_path = request.tokenizer_path.map(PathBuf::from);
+    let model_path = to_absolute_path(&PathBuf::from(&request.model_path))
+        .map_err(|e| format!("无法转换模型路径为绝对路径: {}", e))?;
+    info!("转换后的模型绝对路径: {}", model_path.display());
+    
+    let tokenizer_path = request.tokenizer_path
+        .map(|p| to_absolute_path(&PathBuf::from(&p)))
+        .transpose()
+        .map_err(|e| format!("无法转换 Tokenizer 路径为绝对路径: {}", e))?;
+    if let Some(ref tp) = tokenizer_path {
+        info!("转换后的 Tokenizer 绝对路径: {}", tp.display());
+    }
     
     match state.init_model_from_file(model_path.clone(), tokenizer_path.clone()) {
         Ok(_) => {
