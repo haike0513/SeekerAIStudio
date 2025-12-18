@@ -81,7 +81,11 @@ pub fn run() {
             commands::gguf::init_gguf_model_from_hub,
             commands::gguf::generate_gguf_text,
             commands::gguf::is_gguf_model_loaded,
-            commands::gguf::test_gguf_forward
+            commands::gguf::test_gguf_forward,
+            // 模型管理相关命令
+            commands::models::get_local_models,
+            commands::models::search_remote_models,
+            commands::models::download_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

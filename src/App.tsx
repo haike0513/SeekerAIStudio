@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import InferencePanel from "./components/InferencePanel";
 import SettingsPage from "./components/SettingsPage";
 import WorkflowPage from "./components/WorkflowPage";
+import ModelManagementPage from "./components/ModelManagementPage";
 import "./App.css";
 
 function Layout(props: { children: any }) {
@@ -37,6 +38,7 @@ function App() {
       <Route path="/" component={InferencePanel} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/workflow" component={WorkflowPage} />
+      <Route path="/models" component={ModelManagementPage} />
     </Router>
   );
 }
