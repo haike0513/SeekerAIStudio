@@ -1,6 +1,5 @@
 import { createSignal, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-opener";
 
 interface InitModelRequest {
   model_path: string;
@@ -290,7 +289,7 @@ export default function InferencePanel() {
     try {
       // 注意：这里需要安装 @tauri-apps/plugin-dialog
       // 暂时使用简单的输入方式，后续可以改进为文件选择器
-      const path = prompt(`请输入 ${type} 文件路径:`);
+      const path = window.prompt(`请输入 ${type} 文件路径:`);
       if (path) {
         if (type === "model") {
           if (modelType() === "gguf") {
@@ -438,59 +437,60 @@ export default function InferencePanel() {
 
         {/* Safetensors 模型初始化 */}
         <Show when={modelType() === "safetensors"}>
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px;">模型路径:</label>
-          <div style="display: flex; gap: 10px;">
-            <input
-              type="text"
-              value={modelPath()}
-              onInput={(e) => setModelPath(e.currentTarget.value)}
-              placeholder="模型文件路径 (如: model.safetensors 或模型目录)"
-              style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-            />
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px;">模型路径:</label>
+            <div style="display: flex; gap: 10px;">
+              <input
+                type="text"
+                value={modelPath()}
+                onInput={(e) => setModelPath(e.currentTarget.value)}
+                placeholder="模型文件路径 (如: model.safetensors 或模型目录)"
+                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+              />
+              <button
+                onClick={() => selectFile("model")}
+                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              >
+                选择
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px;">Tokenizer 路径:</label>
+            <div style="display: flex; gap: 10px;">
+              <input
+                type="text"
+                value={tokenizerPath()}
+                onInput={(e) => setTokenizerPath(e.currentTarget.value)}
+                placeholder="Tokenizer 文件路径 (如: tokenizer.json 或目录)"
+                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+              />
+              <button
+                onClick={() => selectFile("tokenizer")}
+                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              >
+                选择
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px;">
             <button
-              onClick={() => selectFile("model")}
-              style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              onClick={initModel}
+              disabled={loading()}
+              style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
             >
-              选择
+              {loading() ? "加载中..." : "初始化模型"}
+            </button>
+            <button
+              onClick={checkModelStatus}
+              style="margin-left: 10px; padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
+            >
+              检查状态
             </button>
           </div>
-        </div>
-
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px;">Tokenizer 路径:</label>
-          <div style="display: flex; gap: 10px;">
-            <input
-              type="text"
-              value={tokenizerPath()}
-              onInput={(e) => setTokenizerPath(e.currentTarget.value)}
-              placeholder="Tokenizer 文件路径 (如: tokenizer.json 或目录)"
-              style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-            />
-            <button
-              onClick={() => selectFile("tokenizer")}
-              style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
-            >
-              选择
-            </button>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 15px;">
-          <button
-            onClick={initModel}
-            disabled={loading()}
-            style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-          >
-            {loading() ? "加载中..." : "初始化模型"}
-          </button>
-          <button
-            onClick={checkModelStatus}
-            style="margin-left: 10px; padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-          >
-            检查状态
-          </button>
-        </div>
+        </Show>
 
         <Show when={modelType() === "gguf" && ggufModelLoaded()}>
           <div style="padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; margin-top: 10px;">

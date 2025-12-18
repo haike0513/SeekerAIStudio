@@ -15,6 +15,12 @@
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
 
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
