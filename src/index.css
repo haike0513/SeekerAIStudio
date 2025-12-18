@@ -63,3 +63,12 @@
   }
 }
 
+@layer utilities {
+  .bg-popover {
+    background-color: hsl(var(--popover));
+  }
+  .text-popover-foreground {
+    color: hsl(var(--popover-foreground));
+  }
+}
+

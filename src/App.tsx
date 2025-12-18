@@ -21,10 +21,7 @@ function Layout(props: { children: any }) {
         setIsCollapsed={setIsSidebarCollapsed} 
       />
       <main 
-        class="flex-1 overflow-y-auto transition-[margin-left] duration-300 ease-in-out"
-        style={{
-          "margin-left": isSidebarCollapsed() ? "4rem" : "16rem"
-        }}
+        class="flex-1 overflow-y-auto duration-300 ease-in-out"
       >
         <div class="container mx-auto p-4 lg:p-6 max-w-7xl">
           {props.children}

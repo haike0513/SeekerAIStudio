@@ -1,12 +1,21 @@
-import { For, createMemo } from "solid-js";
-import { Button } from "@/components/ui/button";
+import { createMemo, createSignal, onMount } from "solid-js";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectPortal,
+  SelectTrigger, 
+  SelectValue
+} from "@/components/ui/select";
 import { useI18n, type Language } from "@/lib/i18n";
 import { useTheme, type Theme } from "@/lib/theme";
 import { ArrowLeft } from "lucide-solid";
 import { useNavigate } from "@solidjs/router";
+import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const { t } = useI18n();
@@ -54,6 +63,17 @@ export default function SettingsPage() {
             <LanguageSelector />
           </CardContent>
         </Card>
+
+        {/* Log Level Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("app.settings.logging.title")}</CardTitle>
+            <CardDescription>{t("app.settings.logging.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LogLevelSelector />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -82,24 +102,50 @@ function ThemeSelector() {
     },
   ]);
 
+  const currentTheme = createMemo(() => 
+    themes().find(t => t.value === theme()) || themes()[0]
+  );
+
   return (
-    <div class="space-y-4">
-      <For each={themes()}>
-        {(themeOption) => (
-          <div class="flex items-center justify-between rounded-lg border p-4">
-            <div class="space-y-0.5">
-              <Label class="text-base font-medium">{themeOption.label}</Label>
-              <p class="text-sm text-muted-foreground">{themeOption.description}</p>
-            </div>
-            <Button
-              variant={theme() === themeOption.value ? "default" : "outline"}
-              onClick={() => setTheme(themeOption.value)}
-            >
-              {theme() === themeOption.value ? t("app.settings.theme.selected") : t("app.settings.theme.select")}
-            </Button>
-          </div>
-        )}
-      </For>
+    <div class="space-y-2">
+      <Label>{t("app.settings.theme.title")}</Label>
+      <Select
+        options={themes()}
+        value={theme()}
+        onChange={(value) => {
+          console.log("Theme onChange:", value, typeof value);
+          if (value !== null && value !== undefined) {
+            // 如果 value 是对象，提取 value 属性；否则直接使用
+            const themeValue = typeof value === 'object' && 'value' in value 
+              ? (value as any).value 
+              : value;
+            setTheme(themeValue as Theme);
+          }
+        }}
+        placeholder={t("app.settings.theme.select")}
+        optionValue={"value" as any}
+        optionTextValue={"label" as any}
+        itemComponent={(props) => {
+          const option = props.item.rawValue as unknown as { value: Theme; label: string; description: string };
+          return (
+            <SelectItem item={props.item}>
+              <div class="flex flex-col">
+                <span>{option.label}</span>
+                <span class="text-xs text-muted-foreground">{option.description}</span>
+              </div>
+            </SelectItem>
+          );
+        }}
+      >
+        <SelectTrigger class="w-full">
+          <SelectValue<Theme>>{() => 
+            currentTheme()?.label || t("app.settings.theme.select")
+          }</SelectValue>
+        </SelectTrigger>
+        <SelectPortal>
+          <SelectContent />
+        </SelectPortal>
+      </Select>
     </div>
   );
 }
@@ -126,24 +172,155 @@ function LanguageSelector() {
     },
   ]);
 
+  const currentLanguage = createMemo(() => 
+    languages().find(l => l.value === locale()) || languages()[0]
+  );
+
   return (
-    <div class="space-y-4">
-      <For each={languages()}>
-        {(lang) => (
-          <div class="flex items-center justify-between rounded-lg border p-4">
-            <div class="space-y-0.5">
-              <Label class="text-base font-medium">{lang.label}</Label>
-              <p class="text-sm text-muted-foreground">{lang.description}</p>
-            </div>
-            <Button
-              variant={locale() === lang.value ? "default" : "outline"}
-              onClick={() => setLocale(lang.value)}
-            >
-              {locale() === lang.value ? t("app.settings.language.selected") : t("app.settings.language.select")}
-            </Button>
-          </div>
-        )}
-      </For>
+    <div class="space-y-2">
+      <Label>{t("app.settings.language.title")}</Label>
+      <Select
+        options={languages()}
+        value={locale()}
+        onChange={(value) => {
+          console.log("Language onChange:", value, typeof value);
+          if (value !== null && value !== undefined) {
+            // 如果 value 是对象，提取 value 属性；否则直接使用
+            const langValue = typeof value === 'object' && 'value' in value 
+              ? (value as any).value 
+              : value;
+            setLocale(langValue as Language);
+          }
+        }}
+        placeholder={t("app.settings.language.select")}
+        optionValue={"value" as any}
+        optionTextValue={"label" as any}
+        itemComponent={(props) => {
+          const option = props.item.rawValue as unknown as { value: Language; label: string; description: string };
+          return (
+            <SelectItem item={props.item}>
+              <div class="flex flex-col">
+                <span>{option.label}</span>
+                <span class="text-xs text-muted-foreground">{option.description}</span>
+              </div>
+            </SelectItem>
+          );
+        }}
+      >
+        <SelectTrigger class="w-full">
+          <SelectValue<Language>>{() => 
+            currentLanguage()?.label || t("app.settings.language.select")
+          }</SelectValue>
+        </SelectTrigger>
+        <SelectPortal>
+          <SelectContent />
+        </SelectPortal>
+      </Select>
+    </div>
+  );
+}
+
+type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
+
+function LogLevelSelector() {
+  const { t } = useI18n();
+  const [logLevel, setLogLevel] = createSignal<LogLevel>("info");
+  const [isLoading, setIsLoading] = createSignal(false);
+
+  // 加载当前日志级别
+  onMount(async () => {
+    try {
+      const currentLevel = await invoke<LogLevel>("get_log_level");
+      setLogLevel(currentLevel);
+    } catch (error) {
+      console.error("获取日志级别失败:", error);
+    }
+  });
+
+  // 使用 createMemo 确保 log levels 响应语言变化
+  const logLevels = createMemo(() => [
+    { 
+      value: "trace" as LogLevel, 
+      label: t("app.settings.logging.trace"),
+      description: t("app.settings.logging.traceDescription")
+    },
+    { 
+      value: "debug" as LogLevel, 
+      label: t("app.settings.logging.debug"),
+      description: t("app.settings.logging.debugDescription")
+    },
+    { 
+      value: "info" as LogLevel, 
+      label: t("app.settings.logging.info"),
+      description: t("app.settings.logging.infoDescription")
+    },
+    { 
+      value: "warn" as LogLevel, 
+      label: t("app.settings.logging.warn"),
+      description: t("app.settings.logging.warnDescription")
+    },
+    { 
+      value: "error" as LogLevel, 
+      label: t("app.settings.logging.error"),
+      description: t("app.settings.logging.errorDescription")
+    },
+  ]);
+
+  const currentLogLevel = createMemo(() => 
+    logLevels().find(l => l.value === logLevel()) || logLevels()[2]
+  );
+
+  const handleSetLogLevel = async (level: LogLevel | null) => {
+    console.log("LogLevel onChange:", level, typeof level);
+    if (level === null || level === undefined) return;
+    // 如果 level 是对象，提取 value 属性；否则直接使用
+    const logLevelValue = typeof level === 'object' && 'value' in level 
+      ? (level as any).value 
+      : level;
+    setIsLoading(true);
+    try {
+      await invoke("set_log_level", { level: logLevelValue });
+      setLogLevel(logLevelValue as LogLevel);
+      console.log(t("app.settings.logging.setSuccess"));
+    } catch (error) {
+      console.error(t("app.settings.logging.setFailed"), error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div class="space-y-2">
+      <Label>{t("app.settings.logging.title")}</Label>
+      <Select
+        options={logLevels()}
+        value={logLevel()}
+        onChange={handleSetLogLevel}
+        placeholder={t("app.settings.logging.select")}
+        optionValue={"value" as any}
+        optionTextValue={"label" as any}
+        disabled={isLoading()}
+        itemComponent={(props) => {
+          const option = props.item.rawValue as unknown as { value: LogLevel; label: string; description: string };
+          return (
+            <SelectItem item={props.item}>
+              <div class="flex flex-col">
+                <span>{option.label}</span>
+                <span class="text-xs text-muted-foreground">{option.description}</span>
+              </div>
+            </SelectItem>
+          );
+        }}
+      >
+        <SelectTrigger class="w-full">
+          <SelectValue<LogLevel>>{() => 
+            currentLogLevel()?.label || t("app.settings.logging.select")
+          }</SelectValue>
+        </SelectTrigger>
+        <SelectPortal>
+          <SelectContent />
+        </SelectPortal>
+      </Select>
     </div>
   );
 }
