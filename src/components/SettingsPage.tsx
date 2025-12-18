@@ -10,6 +10,12 @@ import {
   SelectTrigger, 
   SelectValue
 } from "@/components/ui/select";
+import { 
+  Switch, 
+  SwitchControl, 
+  SwitchInput, 
+  SwitchThumb 
+} from "@/components/ui/switch";
 import { useI18n, type Language } from "@/lib/i18n";
 import { useTheme, type Theme } from "@/lib/theme";
 import { ArrowLeft } from "lucide-solid";
@@ -72,6 +78,17 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <LogLevelSelector />
+          </CardContent>
+        </Card>
+
+        {/* Server Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("app.settings.server.title")}</CardTitle>
+            <CardDescription>{t("app.settings.server.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ServerControl />
           </CardContent>
         </Card>
       </div>
@@ -321,6 +338,131 @@ function LogLevelSelector() {
           <SelectContent />
         </SelectPortal>
       </Select>
+    </div>
+  );
+}
+
+interface ServerStatus {
+  is_running: boolean;
+  address: string | null;
+}
+
+function ServerControl() {
+  const { t } = useI18n();
+  const [isRunning, setIsRunning] = createSignal(false);
+  const [serverAddress, setServerAddress] = createSignal<string | null>(null);
+  const [isLoading, setIsLoading] = createSignal(false);
+
+  // 加载服务器状态
+  const loadServerStatus = async () => {
+    try {
+      const status = await invoke<ServerStatus>("get_server_status");
+      setIsRunning(status.is_running);
+      setServerAddress(status.address || null);
+    } catch (error) {
+      console.error("获取服务器状态失败:", error);
+      setIsRunning(false);
+      setServerAddress(null);
+    }
+  };
+
+  // 组件挂载时加载状态
+  onMount(() => {
+    loadServerStatus();
+  });
+
+  // 处理服务器开关切换
+  const handleServerToggle = async (checked: boolean) => {
+    setIsLoading(true);
+    try {
+      if (checked) {
+        // 启动服务器
+        const status = await invoke<ServerStatus>("start_server");
+        setIsRunning(status.is_running);
+        setServerAddress(status.address || null);
+        if (status.is_running) {
+          console.log(t("app.settings.server.startSuccess"));
+        } else {
+          console.error(t("app.settings.server.startFailed"));
+        }
+      } else {
+        // 停止服务器
+        const status = await invoke<ServerStatus>("stop_server");
+        setIsRunning(status.is_running);
+        setServerAddress(status.address || null);
+        if (!status.is_running) {
+          console.log(t("app.settings.server.stopSuccess"));
+        } else {
+          console.error(t("app.settings.server.stopFailed"));
+        }
+      }
+    } catch (error) {
+      console.error("服务器操作失败:", error);
+      // 操作失败后重新加载状态
+      await loadServerStatus();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="space-y-0.5">
+          <Label>{t("app.settings.server.enabled")}</Label>
+          <p class="text-sm text-muted-foreground">
+            {isRunning() 
+              ? t("app.settings.server.enabledDescription")
+              : t("app.settings.server.disabledDescription")
+            }
+          </p>
+        </div>
+        <Switch
+          checked={isRunning()}
+          onChange={handleServerToggle}
+          disabled={isLoading()}
+        >
+          <SwitchInput />
+          <SwitchControl>
+            <SwitchThumb />
+          </SwitchControl>
+        </Switch>
+      </div>
+
+      {isLoading() && (
+        <p class="text-sm text-muted-foreground">
+          {isRunning() 
+            ? t("app.settings.server.stopping")
+            : t("app.settings.server.starting")
+          }
+        </p>
+      )}
+
+      {isRunning() && serverAddress() && (
+        <div class="space-y-2 rounded-lg border p-3 bg-muted/50">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">{t("app.settings.server.status")}:</span>
+            <span class="font-medium text-green-600 dark:text-green-400">
+              {t("app.settings.server.running")}
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">{t("app.settings.server.address")}:</span>
+            <span class="font-mono text-xs">{serverAddress()}</span>
+          </div>
+        </div>
+      )}
+
+      {!isRunning() && !isLoading() && (
+        <div class="space-y-2 rounded-lg border p-3 bg-muted/50">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">{t("app.settings.server.status")}:</span>
+            <span class="font-medium text-muted-foreground">
+              {t("app.settings.server.stopped")}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
