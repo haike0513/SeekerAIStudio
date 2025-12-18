@@ -1,0 +1,16 @@
+[package]
+name = "ai_base"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candle-core = { version = "0.9.2-alpha.2" }
+candle-nn = { version = "0.9.2-alpha.2" }
+candle-transformers = { version = "0.9.2-alpha.2" }
+anyhow = "1.0.100"
+tokenizers = "0.22.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+image = "0.25.8"
+hf-hub = "0.3"
