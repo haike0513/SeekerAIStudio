@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { For, createMemo } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +24,8 @@ export default function SettingsPage() {
           <ArrowLeft class="h-5 w-5" />
         </Button>
         <div>
-          <h1 class="text-3xl font-bold">{t("app.sidebar.settings")}</h1>
-          <p class="text-muted-foreground">管理应用程序设置和首选项</p>
+          <h1 class="text-3xl font-bold">{t("app.settings.title")}</h1>
+          <p class="text-muted-foreground">{t("app.settings.description")}</p>
         </div>
       </div>
 
@@ -36,8 +36,8 @@ export default function SettingsPage() {
         {/* Theme Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>主题设置</CardTitle>
-            <CardDescription>选择您喜欢的主题模式</CardDescription>
+            <CardTitle>{t("app.settings.theme.title")}</CardTitle>
+            <CardDescription>{t("app.settings.theme.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <ThemeSelector />
@@ -47,8 +47,8 @@ export default function SettingsPage() {
         {/* Language Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>语言设置</CardTitle>
-            <CardDescription>选择应用程序显示语言</CardDescription>
+            <CardTitle>{t("app.settings.language.title")}</CardTitle>
+            <CardDescription>{t("app.settings.language.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <LanguageSelector />
@@ -63,27 +63,28 @@ function ThemeSelector() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   
-  const themes: { value: Theme; label: string; description: string }[] = [
+  // 使用 createMemo 确保 themes 响应语言变化
+  const themes = createMemo(() => [
     { 
-      value: "light", 
+      value: "light" as Theme, 
       label: t("app.theme.light"),
-      description: "使用浅色主题"
+      description: t("app.settings.theme.lightDescription")
     },
     { 
-      value: "dark", 
+      value: "dark" as Theme, 
       label: t("app.theme.dark"),
-      description: "使用深色主题"
+      description: t("app.settings.theme.darkDescription")
     },
     { 
-      value: "auto", 
+      value: "auto" as Theme, 
       label: t("app.theme.auto"),
-      description: "跟随系统设置"
+      description: t("app.settings.theme.autoDescription")
     },
-  ];
+  ]);
 
   return (
     <div class="space-y-4">
-      <For each={themes}>
+      <For each={themes()}>
         {(themeOption) => (
           <div class="flex items-center justify-between rounded-lg border p-4">
             <div class="space-y-0.5">
@@ -94,7 +95,7 @@ function ThemeSelector() {
               variant={theme() === themeOption.value ? "default" : "outline"}
               onClick={() => setTheme(themeOption.value)}
             >
-              {theme() === themeOption.value ? "已选择" : "选择"}
+              {theme() === themeOption.value ? t("app.settings.theme.selected") : t("app.settings.theme.select")}
             </Button>
           </div>
         )}
@@ -106,27 +107,28 @@ function ThemeSelector() {
 function LanguageSelector() {
   const { t, locale, setLocale } = useI18n();
   
-  const languages: { value: Language; label: string; description: string }[] = [
+  // 使用 createMemo 确保 languages 响应语言变化
+  const languages = createMemo(() => [
     { 
-      value: "zh-CN", 
+      value: "zh-CN" as Language, 
       label: t("app.language.zh-CN"),
-      description: "简体中文"
+      description: t("app.language.zh-CN")
     },
     { 
-      value: "en-US", 
+      value: "en-US" as Language, 
       label: t("app.language.en-US"),
-      description: "English"
+      description: t("app.language.en-US")
     },
     { 
-      value: "ja-JP", 
+      value: "ja-JP" as Language, 
       label: t("app.language.ja-JP"),
-      description: "日本語"
+      description: t("app.language.ja-JP")
     },
-  ];
+  ]);
 
   return (
     <div class="space-y-4">
-      <For each={languages}>
+      <For each={languages()}>
         {(lang) => (
           <div class="flex items-center justify-between rounded-lg border p-4">
             <div class="space-y-0.5">
@@ -137,7 +139,7 @@ function LanguageSelector() {
               variant={locale() === lang.value ? "default" : "outline"}
               onClick={() => setLocale(lang.value)}
             >
-              {locale() === lang.value ? "已选择" : "选择"}
+              {locale() === lang.value ? t("app.settings.language.selected") : t("app.settings.language.select")}
             </Button>
           </div>
         )}

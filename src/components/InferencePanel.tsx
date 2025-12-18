@@ -232,13 +232,13 @@ export default function InferencePanel() {
 
       if (result.success) {
         setResponse(result.text);
-        setMessage("生成完成");
+        setMessage(t("inference.generateComplete"));
       } else {
-        setMessage(`生成失败: ${result.error || "未知错误"}`);
+        setMessage(`${t("inference.generateFailed")}: ${result.error || t("inference.unknownError")}`);
       }
     } catch (error) {
       console.error("推理失败:", error);
-      setMessage(`错误: ${error}`);
+      setMessage(`${t("inference.error")}: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -283,13 +283,13 @@ export default function InferencePanel() {
 
       if (result.success) {
         setResponse(result.text);
-        setMessage("生成完成");
+        setMessage(t("inference.generateComplete"));
       } else {
-        setMessage(`生成失败: ${result.error || "未知错误"}`);
+        setMessage(`${t("inference.generateFailed")}: ${result.error || t("inference.unknownError")}`);
       }
     } catch (error) {
       console.error("多模态推理失败:", error);
-      setMessage(`错误: ${error}`);
+      setMessage(`${t("inference.error")}: ${error}`);
     } finally {
       setLoading(false);
     }

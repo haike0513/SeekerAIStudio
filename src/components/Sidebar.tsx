@@ -1,4 +1,4 @@
-import { Show, For, createSignal } from "solid-js";
+import { Show, For, createSignal, createMemo } from "solid-js";
 import { A } from "@solidjs/router";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -33,13 +33,13 @@ export default function Sidebar(props: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = createSignal(false);
   const { t } = useI18n();
 
-  const sidebarItems: SidebarItem[] = [
+  // 使用 createMemo 确保 sidebarItems 响应语言变化
+  const sidebarItems = createMemo<SidebarItem[]>(() => [
     {
       id: "inference",
       icon: Brain,
       label: t("app.sidebar.inference"),
       onClick: () => {
-        // 导航到推理页面
         setIsMobileOpen(false);
       },
     },
@@ -48,7 +48,6 @@ export default function Sidebar(props: SidebarProps) {
       icon: GitBranch,
       label: t("app.sidebar.workflow"),
       onClick: () => {
-        // 导航到工作流页面
         setIsMobileOpen(false);
       },
     },
@@ -57,7 +56,6 @@ export default function Sidebar(props: SidebarProps) {
       icon: Database,
       label: t("app.sidebar.models"),
       onClick: () => {
-        // 导航到模型管理页面
         setIsMobileOpen(false);
       },
     },
@@ -66,11 +64,10 @@ export default function Sidebar(props: SidebarProps) {
       icon: History,
       label: t("app.sidebar.history"),
       onClick: () => {
-        // 导航到历史记录页面
         setIsMobileOpen(false);
       },
     },
-  ];
+  ]);
 
   return (
     <>
@@ -78,7 +75,7 @@ export default function Sidebar(props: SidebarProps) {
       <Button
         variant="ghost"
         size="icon"
-        class="lg:hidden fixed top-4 left-4 z-50"
+        class="sm:hidden fixed top-4 left-4 z-50"
         onClick={() => setIsMobileOpen(!isMobileOpen())}
       >
         <Show when={isMobileOpen()} fallback={<Menu class="h-5 w-5" />}>
@@ -92,7 +89,7 @@ export default function Sidebar(props: SidebarProps) {
           "relative h-screen transition-all duration-300 ease-in-out",
           "bg-card border-r border-border",
           props.isCollapsed() ? "w-16" : "w-64",
-          "hidden lg:flex lg:flex-col lg:shrink-0"
+          "hidden sm:flex sm:flex-col sm:shrink-0"
         )}
       >
         <div class="flex h-full flex-col">
@@ -104,8 +101,8 @@ export default function Sidebar(props: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav class="flex-1 overflow-y-auto p-4 space-y-1">
-            <For each={sidebarItems}>
+          <nav class="flex-1 overflow-y-auto space-y-1">
+            <For each={sidebarItems()}>
               {(item) => {
                 const href = item.id === "inference" ? "/" : `/${item.id}`;
                 return (
@@ -114,7 +111,7 @@ export default function Sidebar(props: SidebarProps) {
                       variant="ghost"
                       class={cn(
                         "w-full justify-start gap-3",
-                        props.isCollapsed() ? "px-2" : "px-3"
+                        props.isCollapsed() ? "px-0" : "px-1"
                       )}
                       onClick={item.onClick}
                     >
@@ -170,7 +167,7 @@ export default function Sidebar(props: SidebarProps) {
       {/* Mobile sidebar overlay */}
       <Show when={isMobileOpen()}>
         <div
-          class="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm lg:hidden"
+          class="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm sm:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
         <aside
@@ -192,7 +189,7 @@ export default function Sidebar(props: SidebarProps) {
               </Button>
             </div>
             <nav class="flex-1 overflow-y-auto p-4 space-y-1">
-              <For each={sidebarItems}>
+              <For each={sidebarItems()}>
                 {(item) => {
                   const href = item.id === "inference" ? "/" : `/${item.id}`;
                   return (
