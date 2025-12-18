@@ -1,5 +1,15 @@
 import { createSignal, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem, RadioGroupItemInput, RadioGroupItemLabel, RadioGroupItems, RadioGroupItemControl, RadioGroupItemIndicator } from "@/components/ui/radio-group";
+import { Slider, SliderTrack, SliderFill, SliderThumb } from "@/components/ui/slider";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle2, Loader2 } from "lucide-solid";
+import { useI18n } from "@/lib/i18n";
 
 interface InitModelRequest {
   model_path: string;
@@ -40,6 +50,7 @@ interface InitGGUFHubRequest {
 }
 
 export default function InferencePanel() {
+  const { t } = useI18n();
   const [modelLoaded, setModelLoaded] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -65,18 +76,18 @@ export default function InferencePanel() {
         const loaded = await invoke<boolean>("is_gguf_model_loaded");
         setGgufModelLoaded(loaded);
         if (loaded) {
-          setMessage("GGUF 模型已加载");
+          setMessage(t("inference.ggufModelLoaded"));
         }
       } else {
         const loaded = await invoke<boolean>("is_model_loaded");
         setModelLoaded(loaded);
         if (loaded) {
-          setMessage("模型已加载");
+          setMessage(t("inference.modelLoaded"));
         }
       }
     } catch (error) {
       console.error("检查模型状态失败:", error);
-      setMessage(`错误: ${error}`);
+      setMessage(`${t("inference.error")}: ${error}`);
     }
   }
 
@@ -92,12 +103,12 @@ export default function InferencePanel() {
   // 初始化 Safetensors 模型
   async function initSafetensorsModel() {
     if (!modelPath() || !tokenizerPath()) {
-      setMessage("请提供模型路径和 tokenizer 路径");
+      setMessage(t("inference.pleaseProvidePaths"));
       return;
     }
 
     setLoading(true);
-    setMessage("正在初始化模型...");
+    setMessage(t("inference.loading"));
 
     try {
       const request: InitModelRequest = {
@@ -126,13 +137,13 @@ export default function InferencePanel() {
   // 初始化 GGUF 模型
   async function initGGUFModel() {
     setLoading(true);
-    setMessage("正在初始化 GGUF 模型...");
+    setMessage(t("inference.loading"));
 
     try {
       if (ggufLoadFromHub()) {
         // 从 HuggingFace Hub 加载
         if (!ggufHfRepo() || !ggufHfFilename()) {
-          setMessage("请提供 HuggingFace 仓库和文件名");
+          setMessage(t("inference.pleaseProvideHFInfo"));
           setLoading(false);
           return;
         }
@@ -156,7 +167,7 @@ export default function InferencePanel() {
       } else {
         // 从本地文件加载
         if (!ggufModelPath()) {
-          setMessage("请提供 GGUF 模型路径");
+          setMessage(t("inference.pleaseProvideGGUFPath"));
           setLoading(false);
           return;
         }
@@ -188,25 +199,25 @@ export default function InferencePanel() {
   // 执行文本推理
   async function generateText() {
     if (!prompt()) {
-      setMessage("请输入提示词");
+      setMessage(t("inference.pleaseEnterPrompt"));
       return;
     }
 
     if (modelType() === "gguf") {
       if (!ggufModelLoaded()) {
-        setMessage("请先加载 GGUF 模型");
+        setMessage(t("inference.pleaseLoadGGUFModel"));
         return;
       }
     } else {
       if (!modelLoaded()) {
-        setMessage("请先加载模型");
+        setMessage(t("inference.pleaseLoadModel"));
         return;
       }
     }
 
     setLoading(true);
     setResponse("");
-    setMessage("正在生成...");
+    setMessage(t("inference.generating"));
 
     try {
       const request: InferenceRequest = {
@@ -236,28 +247,28 @@ export default function InferencePanel() {
   // 执行多模态推理（仅支持 safetensors 模型）
   async function generateMultimodal() {
     if (modelType() === "gguf") {
-      setMessage("GGUF 模型暂不支持多模态推理");
+      setMessage(t("inference.ggufNotSupportMultimodal"));
       return;
     }
 
     if (!prompt()) {
-      setMessage("请输入提示词");
+      setMessage(t("inference.pleaseEnterPrompt"));
       return;
     }
 
     if (!imagePath()) {
-      setMessage("请选择图像文件");
+      setMessage(t("inference.pleaseSelectImage"));
       return;
     }
 
     if (!modelLoaded()) {
-      setMessage("请先加载模型");
+      setMessage(t("inference.pleaseLoadModel"));
       return;
     }
 
     setLoading(true);
     setResponse("");
-    setMessage("正在生成...");
+    setMessage(t("inference.generating"));
 
     try {
       const request: MultimodalInferenceRequest = {
@@ -316,281 +327,300 @@ export default function InferencePanel() {
   checkModelStatus();
 
   return (
-    <div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
-      <h1>AI 推理界面</h1>
+    <div class="space-y-6">
+      <h1 class="text-3xl font-bold mb-6">{t("inference.title")}</h1>
 
       {/* 模型类型选择 */}
-      <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
-        <h2>模型类型</h2>
-        <div style="display: flex; gap: 20px;">
-          <label>
-            <input
-              type="radio"
-              checked={modelType() === "gguf"}
-              onChange={() => setModelType("gguf")}
-              style="margin-right: 5px;"
-            />
-            GGUF 模型
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={modelType() === "safetensors"}
-              onChange={() => setModelType("safetensors")}
-              style="margin-right: 5px;"
-            />
-            Safetensors 模型 (Qwen3-VL)
-          </label>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("inference.modelType")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={modelType()}
+            onChange={(value) => setModelType(value as "gguf" | "safetensors")}
+          >
+            <RadioGroupItems>
+              <RadioGroupItem value="gguf">
+                <RadioGroupItemInput />
+                <RadioGroupItemControl>
+                  <RadioGroupItemIndicator />
+                </RadioGroupItemControl>
+                <RadioGroupItemLabel>{t("inference.ggufModel")}</RadioGroupItemLabel>
+              </RadioGroupItem>
+              <RadioGroupItem value="safetensors">
+                <RadioGroupItemInput />
+                <RadioGroupItemControl>
+                  <RadioGroupItemIndicator />
+                </RadioGroupItemControl>
+                <RadioGroupItemLabel>{t("inference.safetensorsModel")}</RadioGroupItemLabel>
+              </RadioGroupItem>
+            </RadioGroupItems>
+          </RadioGroup>
+        </CardContent>
+      </Card>
 
       {/* 模型初始化区域 */}
-      <div style="margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-        <h2>模型初始化</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("inference.modelInit")}</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          {/* GGUF 模型初始化 */}
+          <Show when={modelType() === "gguf"}>
+            <div class="space-y-4">
+              <RadioGroup
+                value={ggufLoadFromHub() ? "hub" : "file"}
+                onChange={(value) => setGgufLoadFromHub(value === "hub")}
+              >
+                <RadioGroupItems>
+                  <RadioGroupItem value="file">
+                    <RadioGroupItemInput />
+                    <RadioGroupItemControl>
+                      <RadioGroupItemIndicator />
+                    </RadioGroupItemControl>
+                    <RadioGroupItemLabel>{t("inference.loadFromFile")}</RadioGroupItemLabel>
+                  </RadioGroupItem>
+                  <RadioGroupItem value="hub">
+                    <RadioGroupItemInput />
+                    <RadioGroupItemControl>
+                      <RadioGroupItemIndicator />
+                    </RadioGroupItemControl>
+                    <RadioGroupItemLabel>{t("inference.loadFromHub")}</RadioGroupItemLabel>
+                  </RadioGroupItem>
+                </RadioGroupItems>
+              </RadioGroup>
 
-        {/* GGUF 模型初始化 */}
-        <Show when={modelType() === "gguf"}>
-          <div style="margin-bottom: 15px;">
-            <label style="margin-right: 20px;">
-              <input
-                type="radio"
-                checked={!ggufLoadFromHub()}
-                onChange={() => setGgufLoadFromHub(false)}
-                style="margin-right: 5px;"
-              />
-              从本地文件加载
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={ggufLoadFromHub()}
-                onChange={() => setGgufLoadFromHub(true)}
-                style="margin-right: 5px;"
-              />
-              从 HuggingFace Hub 下载
-            </label>
-          </div>
+              <Show when={!ggufLoadFromHub()}>
+                <div class="space-y-2">
+                  <Label>{t("inference.modelPath")}:</Label>
+                  <div class="flex gap-2">
+                    <Input
+                      type="text"
+                      value={ggufModelPath()}
+                      onInput={(e) => setGgufModelPath(e.currentTarget.value)}
+                      placeholder={t("inference.placeholder.ggufModelPath")}
+                      class="flex-1"
+                    />
+                    <Button onClick={() => selectFile("model")} variant="outline">
+                      {t("inference.select")}
+                    </Button>
+                  </div>
+                </div>
+              </Show>
 
-          <Show when={!ggufLoadFromHub()}>
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 5px;">GGUF 模型路径:</label>
-              <div style="display: flex; gap: 10px;">
-                <input
-                  type="text"
-                  value={ggufModelPath()}
-                  onInput={(e) => setGgufModelPath(e.currentTarget.value)}
-                  placeholder="GGUF 模型文件路径 (如: model.gguf)"
-                  style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-                />
-                <button
-                  onClick={() => selectFile("model")}
-                  style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              <Show when={ggufLoadFromHub()}>
+                <div class="space-y-4">
+                  <div class="space-y-2">
+                    <Label>{t("inference.hfRepo")}:</Label>
+                    <Input
+                      type="text"
+                      value={ggufHfRepo()}
+                      onInput={(e) => setGgufHfRepo(e.currentTarget.value)}
+                      placeholder={t("inference.placeholder.hfRepo")}
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <Label>{t("inference.modelFilename")}:</Label>
+                    <Input
+                      type="text"
+                      value={ggufHfFilename()}
+                      onInput={(e) => setGgufHfFilename(e.currentTarget.value)}
+                      placeholder={t("inference.placeholder.hfFilename")}
+                    />
+                  </div>
+                </div>
+              </Show>
+
+              <div class="space-y-2">
+                <Label>{t("inference.tokenizerPathOptional")}:</Label>
+                <div class="flex gap-2">
+                  <Input
+                    type="text"
+                    value={ggufTokenizerPath()}
+                    onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
+                    placeholder={t("inference.placeholder.tokenizerPathOptional")}
+                    class="flex-1"
+                  />
+                  <Button onClick={() => selectFile("tokenizer")} variant="outline">
+                    {t("inference.select")}
+                  </Button>
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <Button
+                  onClick={initModel}
+                  disabled={loading()}
+                  variant="default"
                 >
-                  选择
-                </button>
+                  <Show when={loading()} fallback={t("inference.initModel")}>
+                    <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                    {t("inference.loading")}
+                  </Show>
+                </Button>
+                <Button onClick={checkModelStatus} variant="secondary">
+                  {t("inference.checkStatus")}
+                </Button>
               </div>
             </div>
           </Show>
 
-          <Show when={ggufLoadFromHub()}>
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 5px;">HuggingFace 仓库:</label>
-              <input
-                type="text"
-                value={ggufHfRepo()}
-                onInput={(e) => setGgufHfRepo(e.currentTarget.value)}
-                placeholder="HuggingFace 仓库 (如: HuggingFaceTB/SmolLM2-360M-Instruct-GGUF)"
-                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
-            </div>
-            <div style="margin-bottom: 15px;">
-              <label style="display: block; margin-bottom: 5px;">模型文件名:</label>
-              <input
-                type="text"
-                value={ggufHfFilename()}
-                onInput={(e) => setGgufHfFilename(e.currentTarget.value)}
-                placeholder="模型文件名 (如: smollm2-360m-instruct-q8_0.gguf)"
-                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
+          {/* Safetensors 模型初始化 */}
+          <Show when={modelType() === "safetensors"}>
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <Label>{t("inference.modelPath")}:</Label>
+                <div class="flex gap-2">
+                  <Input
+                    type="text"
+                    value={modelPath()}
+                    onInput={(e) => setModelPath(e.currentTarget.value)}
+                    placeholder={t("inference.placeholder.modelPath")}
+                    class="flex-1"
+                  />
+                  <Button onClick={() => selectFile("model")} variant="outline">
+                    {t("inference.select")}
+                  </Button>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label>{t("inference.tokenizerPath")}:</Label>
+                <div class="flex gap-2">
+                  <Input
+                    type="text"
+                    value={tokenizerPath()}
+                    onInput={(e) => setTokenizerPath(e.currentTarget.value)}
+                    placeholder={t("inference.placeholder.tokenizerPath")}
+                    class="flex-1"
+                  />
+                  <Button onClick={() => selectFile("tokenizer")} variant="outline">
+                    {t("inference.select")}
+                  </Button>
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <Button
+                  onClick={initModel}
+                  disabled={loading()}
+                  variant="default"
+                >
+                  <Show when={loading()} fallback={t("inference.initModel")}>
+                    <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                    {t("inference.loading")}
+                  </Show>
+                </Button>
+                <Button onClick={checkModelStatus} variant="secondary">
+                  {t("inference.checkStatus")}
+                </Button>
+              </div>
             </div>
           </Show>
 
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px;">Tokenizer 路径 (可选):</label>
-            <div style="display: flex; gap: 10px;">
-              <input
-                type="text"
-                value={ggufTokenizerPath()}
-                onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
-                placeholder="Tokenizer 文件路径 (可选)"
-                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
-              <button
-                onClick={() => selectFile("tokenizer")}
-                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                选择
-              </button>
-            </div>
-          </div>
-        </Show>
+          <Show when={modelType() === "gguf" && ggufModelLoaded()}>
+            <Alert variant="default" class="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+              <CheckCircle2 class="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle class="text-green-800 dark:text-green-200">{t("inference.ggufModelLoaded")}</AlertTitle>
+            </Alert>
+          </Show>
 
-        {/* Safetensors 模型初始化 */}
-        <Show when={modelType() === "safetensors"}>
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px;">模型路径:</label>
-            <div style="display: flex; gap: 10px;">
-              <input
-                type="text"
-                value={modelPath()}
-                onInput={(e) => setModelPath(e.currentTarget.value)}
-                placeholder="模型文件路径 (如: model.safetensors 或模型目录)"
-                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
-              <button
-                onClick={() => selectFile("model")}
-                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                选择
-              </button>
-            </div>
-          </div>
+          <Show when={modelType() === "safetensors" && modelLoaded()}>
+            <Alert variant="default" class="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+              <CheckCircle2 class="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle class="text-green-800 dark:text-green-200">{t("inference.modelLoaded")}</AlertTitle>
+            </Alert>
+          </Show>
 
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px;">Tokenizer 路径:</label>
-            <div style="display: flex; gap: 10px;">
-              <input
-                type="text"
-                value={tokenizerPath()}
-                onInput={(e) => setTokenizerPath(e.currentTarget.value)}
-                placeholder="Tokenizer 文件路径 (如: tokenizer.json 或目录)"
-                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
-              <button
-                onClick={() => selectFile("tokenizer")}
-                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                选择
-              </button>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 15px;">
-            <button
-              onClick={initModel}
-              disabled={loading()}
-              style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-            >
-              {loading() ? "加载中..." : "初始化模型"}
-            </button>
-            <button
-              onClick={checkModelStatus}
-              style="margin-left: 10px; padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-            >
-              检查状态
-            </button>
-          </div>
-        </Show>
-
-        <Show when={modelType() === "gguf" && ggufModelLoaded()}>
-          <div style="padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; margin-top: 10px;">
-            ✓ GGUF 模型已加载
-          </div>
-        </Show>
-
-        <Show when={modelType() === "safetensors" && modelLoaded()}>
-          <div style="padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; margin-top: 10px;">
-            ✓ 模型已加载
-          </div>
-        </Show>
-
-        <Show when={message()}>
-          <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; color: #333;">
-            {message()}
-          </div>
-        </Show>
-      </div>
+          <Show when={message()}>
+            <Alert>
+              <AlertDescription>{message()}</AlertDescription>
+            </Alert>
+          </Show>
+        </CardContent>
+      </Card>
 
       {/* 推理区域 */}
-      <div style="padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-        <h2>推理</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("inference.inference")}</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          {/* 模式选择（仅 safetensors 模型支持多模态） */}
+          <Show when={modelType() === "safetensors"}>
+            <RadioGroup
+              value={isMultimodal() ? "multimodal" : "text"}
+              onChange={(value) => setIsMultimodal(value === "multimodal")}
+            >
+              <RadioGroupItems>
+                <RadioGroupItem value="text">
+                  <RadioGroupItemInput />
+                  <RadioGroupItemControl>
+                    <RadioGroupItemIndicator />
+                  </RadioGroupItemControl>
+                  <RadioGroupItemLabel>{t("inference.textInference")}</RadioGroupItemLabel>
+                </RadioGroupItem>
+                <RadioGroupItem value="multimodal">
+                  <RadioGroupItemInput />
+                  <RadioGroupItemControl>
+                    <RadioGroupItemIndicator />
+                  </RadioGroupItemControl>
+                  <RadioGroupItemLabel>{t("inference.multimodalInference")}</RadioGroupItemLabel>
+                </RadioGroupItem>
+              </RadioGroupItems>
+            </RadioGroup>
+          </Show>
 
-        {/* 模式选择（仅 safetensors 模型支持多模态） */}
-        <Show when={modelType() === "safetensors"}>
-          <div style="margin-bottom: 15px;">
-            <label style="margin-right: 20px;">
-              <input
-                type="radio"
-                checked={!isMultimodal()}
-                onChange={() => setIsMultimodal(false)}
-                style="margin-right: 5px;"
-              />
-              文本推理
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={isMultimodal()}
-                onChange={() => setIsMultimodal(true)}
-                style="margin-right: 5px;"
-              />
-              多模态推理（图像 + 文本）
-            </label>
-          </div>
-        </Show>
-
-        {/* 图像输入（仅多模态模式） */}
-        <Show when={isMultimodal()}>
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px;">图像路径:</label>
-            <div style="display: flex; gap: 10px;">
-              <input
-                type="text"
-                value={imagePath()}
-                onInput={(e) => setImagePath(e.currentTarget.value)}
-                placeholder="图像文件路径"
-                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-              />
-              <button
-                onClick={() => selectFile("image")}
-                style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                选择
-              </button>
+          {/* 图像输入（仅多模态模式） */}
+          <Show when={isMultimodal()}>
+            <div class="space-y-2">
+              <Label>{t("inference.imagePath")}:</Label>
+              <div class="flex gap-2">
+                <Input
+                  type="text"
+                  value={imagePath()}
+                  onInput={(e) => setImagePath(e.currentTarget.value)}
+                  placeholder={t("inference.placeholder.imagePath")}
+                  class="flex-1"
+                />
+                <Button onClick={() => selectFile("image")} variant="outline">
+                  {t("inference.select")}
+                </Button>
+              </div>
             </div>
+          </Show>
+
+          {/* 提示词输入 */}
+          <div class="space-y-2">
+            <Label>{t("inference.prompt")}:</Label>
+            <Textarea
+              value={prompt()}
+              onInput={(e) => setPrompt(e.currentTarget.value)}
+              placeholder={t("inference.placeholder.prompt")}
+              rows="4"
+            />
           </div>
-        </Show>
 
-        {/* 提示词输入 */}
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px;">提示词:</label>
-          <textarea
-            value={prompt()}
-            onInput={(e) => setPrompt(e.currentTarget.value)}
-            placeholder="输入你的提示词..."
-            rows="4"
-            style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;"
-          />
-        </div>
+          {/* 参数设置 */}
+          <div class="space-y-2">
+            <Label>{t("inference.maxTokens")}: {maxTokens()}</Label>
+            <Slider
+              value={[maxTokens()]}
+              onChange={(values: number[]) => setMaxTokens(values[0])}
+              minValue={1}
+              maxValue={2048}
+              step={1}
+            >
+              <SliderTrack>
+                <SliderFill />
+                <SliderThumb />
+              </SliderTrack>
+            </Slider>
+          </div>
 
-        {/* 参数设置 */}
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px;">
-            最大 token 数: {maxTokens()}
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="2048"
-            value={maxTokens()}
-            onInput={(e) => setMaxTokens(parseInt(e.currentTarget.value))}
-            style="width: 100%;"
-          />
-        </div>
-
-        {/* 生成按钮 */}
-        <div style="margin-bottom: 15px;">
-          <button
+          {/* 生成按钮 */}
+          <Button
             onClick={() => {
               if (modelType() === "gguf") {
                 generateText();
@@ -602,24 +632,29 @@ export default function InferencePanel() {
               loading() ||
               (modelType() === "gguf" ? !ggufModelLoaded() : !modelLoaded())
             }
-            style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; disabled: opacity: 0.5;"
+            variant="default"
+            size="lg"
+            class="w-full"
           >
-            {loading() ? "生成中..." : "生成"}
-          </button>
-        </div>
+            <Show when={loading()} fallback={t("inference.generate")}>
+              <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+              {t("inference.generating")}
+            </Show>
+          </Button>
 
-        {/* 结果展示 */}
-        <Show when={response()}>
-          <div style="margin-top: 20px;">
-            <h3>生成结果:</h3>
-            <div
-              style="padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; min-height: 100px;"
-            >
-              {response()}
+          {/* 结果展示 */}
+          <Show when={response()}>
+            <div class="mt-6 space-y-2">
+              <h3 class="text-lg font-semibold">{t("inference.result")}:</h3>
+              <Card>
+                <CardContent class="pt-6">
+                  <pre class="whitespace-pre-wrap text-sm">{response()}</pre>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </Show>
-      </div>
+          </Show>
+        </CardContent>
+      </Card>
     </div>
   );
 }

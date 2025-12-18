@@ -1,12 +1,13 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 import { fileURLToPath, URL } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [solid()],
+  plugins: [    tailwindcss(),solid()],
 
   resolve: {
     alias: {
