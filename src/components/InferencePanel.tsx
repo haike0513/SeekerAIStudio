@@ -1,5 +1,6 @@
 import { createSignal, Show, createMemo, onMount } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,12 +11,12 @@ import { Slider, SliderTrack, SliderFill, SliderThumb } from "@/components/ui/sl
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckCircle2, Loader2, RefreshCw } from "lucide-solid";
 import { useI18n } from "@/lib/i18n";
-import { 
-  Select, 
-  SelectContent, 
+import {
+  Select,
+  SelectContent,
   SelectItem,
   SelectPortal,
-  SelectTrigger, 
+  SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
 
@@ -113,7 +114,7 @@ export default function InferencePanel() {
       }
       groups.get(m.name)!.push(m);
     });
-    
+
     // 如果同一模型有多个文件，显示为 "模型名称 (文件名)"
     return Array.from(groups.entries()).flatMap(([modelName, files]) => {
       if (files.length === 1) {
@@ -144,7 +145,7 @@ export default function InferencePanel() {
       }
       groups.get(m.name)!.push(m);
     });
-    
+
     // 如果同一模型有多个文件，显示为 "模型名称 (文件名)"
     return Array.from(groups.entries()).flatMap(([modelName, files]) => {
       if (files.length === 1) {
@@ -417,10 +418,29 @@ export default function InferencePanel() {
   // 选择文件（使用 Tauri 的 dialog API）
   async function selectFile(type: "model" | "tokenizer" | "image") {
     try {
-      // 注意：这里需要安装 @tauri-apps/plugin-dialog
-      // 暂时使用简单的输入方式，后续可以改进为文件选择器
-      const path = window.prompt(`请输入 ${type} 文件路径:`);
-      if (path) {
+      const filters = [];
+      if (type === "image") {
+        filters.push({ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] });
+      } else if (type === "model") {
+        if (modelType() === "gguf") {
+          filters.push({ name: "GGUF Models", extensions: ["gguf"] });
+        } else {
+          filters.push({ name: "Safetensors Models", extensions: ["safetensors"] });
+        }
+      } else if (type === "tokenizer") {
+        filters.push({ name: "Tokenizer", extensions: ["json"] });
+      }
+
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters,
+      });
+
+      if (selected) {
+        // selected 为文件路径字符串 (因为 multiple: false)
+        const path = selected;
+
         if (type === "model") {
           if (modelType() === "gguf") {
             setGgufModelPath(path);
@@ -439,6 +459,7 @@ export default function InferencePanel() {
       }
     } catch (error) {
       console.error("选择文件失败:", error);
+      setMessage(`${t("inference.error")}: ${error}`);
     }
   }
 
@@ -517,7 +538,7 @@ export default function InferencePanel() {
                 <div class="space-y-2">
                   <Label>{t("inference.modelPath")}:</Label>
                   <div class="flex gap-2">
-                    <Show 
+                    <Show
                       when={ggufModels().length > 0}
                       fallback={
                         <Input
@@ -534,8 +555,8 @@ export default function InferencePanel() {
                         value={ggufModelPath()}
                         onChange={(value) => {
                           if (value === null || value === undefined) return;
-                          const pathValue = typeof value === 'object' && 'value' in value 
-                            ? (value as any).value 
+                          const pathValue = typeof value === 'object' && 'value' in value
+                            ? (value as any).value
                             : value;
                           if (pathValue) {
                             setGgufModelPath(pathValue as string);
@@ -576,9 +597,9 @@ export default function InferencePanel() {
                     <Button onClick={() => selectFile("model")} variant="outline">
                       {t("inference.select")}
                     </Button>
-                    <Button 
-                      onClick={loadModels} 
-                      variant="outline" 
+                    <Button
+                      onClick={loadModels}
+                      variant="outline"
                       size="sm"
                       disabled={loadingModels()}
                       title={t("inference.refreshModels")}
@@ -617,7 +638,7 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.tokenizerPathOptional")}:</Label>
                 <div class="flex gap-2">
-                  <Show 
+                  <Show
                     when={tokenizerPaths().length > 0}
                     fallback={
                       <Input
@@ -634,8 +655,8 @@ export default function InferencePanel() {
                       value={ggufTokenizerPath()}
                       onChange={(value) => {
                         if (value === null || value === undefined) return;
-                        const pathValue = typeof value === 'object' && 'value' in value 
-                          ? (value as any).value 
+                        const pathValue = typeof value === 'object' && 'value' in value
+                          ? (value as any).value
                           : value;
                         if (pathValue) {
                           setGgufTokenizerPath(pathValue as string);
@@ -698,7 +719,7 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.modelPath")}:</Label>
                 <div class="flex gap-2">
-                  <Show 
+                  <Show
                     when={safetensorsModels().length > 0}
                     fallback={
                       <Input
@@ -715,8 +736,8 @@ export default function InferencePanel() {
                       value={modelPath()}
                       onChange={(value) => {
                         if (value === null || value === undefined) return;
-                        const pathValue = typeof value === 'object' && 'value' in value 
-                          ? (value as any).value 
+                        const pathValue = typeof value === 'object' && 'value' in value
+                          ? (value as any).value
                           : value;
                         if (pathValue) {
                           setModelPath(pathValue as string);
@@ -757,9 +778,9 @@ export default function InferencePanel() {
                   <Button onClick={() => selectFile("model")} variant="outline">
                     {t("inference.select")}
                   </Button>
-                  <Button 
-                    onClick={loadModels} 
-                    variant="outline" 
+                  <Button
+                    onClick={loadModels}
+                    variant="outline"
                     size="sm"
                     disabled={loadingModels()}
                     title={t("inference.refreshModels")}
@@ -774,7 +795,7 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.tokenizerPath")}:</Label>
                 <div class="flex gap-2">
-                  <Show 
+                  <Show
                     when={tokenizerPaths().length > 0}
                     fallback={
                       <Input
@@ -791,8 +812,8 @@ export default function InferencePanel() {
                       value={tokenizerPath()}
                       onChange={(value) => {
                         if (value === null || value === undefined) return;
-                        const pathValue = typeof value === 'object' && 'value' in value 
-                          ? (value as any).value 
+                        const pathValue = typeof value === 'object' && 'value' in value
+                          ? (value as any).value
                           : value;
                         if (pathValue) {
                           setTokenizerPath(pathValue as string);
@@ -918,6 +939,11 @@ export default function InferencePanel() {
                   {t("inference.select")}
                 </Button>
               </div>
+              <Show when={imagePath()}>
+                <div class="mt-2 text-center border rounded-md p-2 bg-muted/20">
+                  <img src={convertFileSrc(imagePath())} alt="Preview" class="max-h-64 mx-auto rounded-md object-contain" />
+                </div>
+              </Show>
             </div>
           </Show>
 

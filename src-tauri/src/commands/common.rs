@@ -59,4 +59,3 @@ pub struct InitGGUFHubRequest {
     pub hf_filename: String,
     pub tokenizer_path: Option<String>,
 }
-

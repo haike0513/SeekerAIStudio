@@ -36,7 +36,10 @@ pub struct ServerHandle {
 }
 
 impl ServerHandle {
-    pub fn new(shutdown_tx: oneshot::Sender<()>, thread_handle: std::thread::JoinHandle<()>) -> Self {
+    pub fn new(
+        shutdown_tx: oneshot::Sender<()>,
+        thread_handle: std::thread::JoinHandle<()>,
+    ) -> Self {
         Self {
             shutdown_tx: Some(shutdown_tx),
             thread_handle: Some(thread_handle),
@@ -45,15 +48,18 @@ impl ServerHandle {
 
     pub fn stop(&mut self) -> Result<(), String> {
         if let Some(tx) = self.shutdown_tx.take() {
-            tx.send(()).map_err(|_| "发送停止信号失败：接收端已关闭".to_string())?;
+            tx.send(())
+                .map_err(|_| "发送停止信号失败：接收端已关闭".to_string())?;
             info!("已发送服务器停止信号");
         }
-        
+
         if let Some(handle) = self.thread_handle.take() {
-            handle.join().map_err(|e| format!("等待服务器线程结束失败: {:?}", e))?;
+            handle
+                .join()
+                .map_err(|e| format!("等待服务器线程结束失败: {:?}", e))?;
             info!("服务器线程已结束");
         }
-        
+
         Ok(())
     }
 }
@@ -70,7 +76,10 @@ async fn health_check() -> Json<ApiResponse> {
 async fn greet_api(Json(payload): Json<GreetRequest>) -> Result<Json<ApiResponse>, StatusCode> {
     info!("收到 API greet 请求，name: {}", payload.name);
     Ok(Json(ApiResponse {
-        message: format!("Hello, {}! You've been greeted from Rust API!", payload.name),
+        message: format!(
+            "Hello, {}! You've been greeted from Rust API!",
+            payload.name
+        ),
         status: "success".to_string(),
     }))
 }
@@ -80,7 +89,7 @@ async fn start_axum_server_with_shutdown(
     mut shutdown_rx: oneshot::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("正在启动 Axum 服务器...");
-    
+
     // 创建路由
     let app = Router::new()
         .route("/health", get(health_check))
@@ -90,9 +99,9 @@ async fn start_axum_server_with_shutdown(
     // 绑定到本地地址，默认端口 8080
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let listener = TcpListener::bind(addr).await?;
-    
+
     info!("Axum 服务器运行在 http://{}", addr);
-    
+
     // 启动服务器，支持优雅关闭
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
@@ -100,7 +109,7 @@ async fn start_axum_server_with_shutdown(
             info!("收到停止信号，正在关闭服务器...");
         })
         .await?;
-    
+
     info!("Axum 服务器已关闭");
     Ok(())
 }
@@ -108,9 +117,9 @@ async fn start_axum_server_with_shutdown(
 // 在后台启动 Axum 服务器，返回句柄用于停止
 pub fn spawn_axum_server() -> Result<ServerHandle, String> {
     info!("在后台线程中启动 Axum 服务器");
-    
+
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-    
+
     let thread_handle = std::thread::spawn(move || {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(rt) => rt,
@@ -119,14 +128,14 @@ pub fn spawn_axum_server() -> Result<ServerHandle, String> {
                 return;
             }
         };
-        
+
         rt.block_on(async {
             if let Err(e) = start_axum_server_with_shutdown(shutdown_rx).await {
                 error!("Axum 服务器错误: {}", e);
             }
         });
     });
-    
+
     Ok(ServerHandle::new(shutdown_tx, thread_handle))
 }
 
@@ -135,8 +144,10 @@ pub fn spawn_axum_server() -> Result<ServerHandle, String> {
 pub async fn get_server_status(
     state: tauri::State<'_, Arc<Mutex<Option<ServerHandle>>>>,
 ) -> Result<ServerStatus, String> {
-    let guard = state.lock().map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
-    
+    let guard = state
+        .lock()
+        .map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
+
     if guard.is_some() {
         Ok(ServerStatus {
             is_running: true,
@@ -155,8 +166,10 @@ pub async fn get_server_status(
 pub async fn start_server(
     state: tauri::State<'_, Arc<Mutex<Option<ServerHandle>>>>,
 ) -> Result<ServerStatus, String> {
-    let mut guard = state.lock().map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
-    
+    let mut guard = state
+        .lock()
+        .map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
+
     // 如果服务器已经在运行，返回当前状态
     if guard.is_some() {
         warn!("服务器已经在运行中");
@@ -165,7 +178,7 @@ pub async fn start_server(
             address: Some("http://127.0.0.1:8080".to_string()),
         });
     }
-    
+
     // 启动服务器
     match spawn_axum_server() {
         Ok(handle) => {
@@ -188,8 +201,10 @@ pub async fn start_server(
 pub async fn stop_server(
     state: tauri::State<'_, Arc<Mutex<Option<ServerHandle>>>>,
 ) -> Result<ServerStatus, String> {
-    let mut guard = state.lock().map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
-    
+    let mut guard = state
+        .lock()
+        .map_err(|e| format!("获取服务器状态锁失败: {}", e))?;
+
     if let Some(mut handle) = guard.take() {
         match handle.stop() {
             Ok(_) => {
@@ -212,4 +227,3 @@ pub async fn stop_server(
         })
     }
 }
-

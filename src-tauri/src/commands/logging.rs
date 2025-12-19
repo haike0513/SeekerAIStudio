@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, reload, Registry};
+use tracing_subscriber::{reload, EnvFilter, Registry};
 
 /// 日志级别
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -61,20 +61,22 @@ pub async fn get_log_level(
 #[tauri::command]
 pub async fn set_log_level(
     level: LogLevel,
-    state: tauri::State<'_, Arc<Mutex<Option<LogHandle>>>>
+    state: tauri::State<'_, Arc<Mutex<Option<LogHandle>>>>,
 ) -> Result<LogLevelResponse, String> {
     info!("收到设置日志级别请求: {:?}", level);
-    
+
     let level_str = level.as_str();
     let filter = EnvFilter::new(level_str);
-    
-    let handle_guard = state.lock().map_err(|e| format!("获取日志句柄锁失败: {}", e))?;
-    
+
+    let handle_guard = state
+        .lock()
+        .map_err(|e| format!("获取日志句柄锁失败: {}", e))?;
+
     if let Some(handle) = handle_guard.as_ref() {
         handle
             .reload(filter)
             .map_err(|e| format!("更新日志级别失败: {}", e))?;
-        
+
         info!("日志级别已更新为: {}", level_str);
         Ok(LogLevelResponse {
             success: true,
@@ -86,4 +88,3 @@ pub async fn set_log_level(
         Err("日志系统未正确初始化".to_string())
     }
 }
-

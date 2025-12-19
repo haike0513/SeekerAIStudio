@@ -1,8 +1,10 @@
-use ai_base::{InferenceEngine, InferenceConfig, ImagePreprocessConfig, GGUFInferenceEngine, GGUFConfig};
+use ai_base::{
+    GGUFConfig, GGUFInferenceEngine, ImagePreprocessConfig, InferenceConfig, InferenceEngine,
+};
+use anyhow::{Context, Result};
 use candle_transformers::models::llama::Config;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use anyhow::{Result, Context};
 
 /// 推理服务状态
 pub struct InferenceService {
@@ -28,7 +30,10 @@ impl InferenceService {
             return Err(anyhow::anyhow!("模型文件不存在: {:?}", model_path));
         }
         if !tokenizer_path.exists() {
-            return Err(anyhow::anyhow!("Tokenizer 文件不存在: {:?}", tokenizer_path));
+            return Err(anyhow::anyhow!(
+                "Tokenizer 文件不存在: {:?}",
+                tokenizer_path
+            ));
         }
 
         // 为 Qwen3-VL 配置图像预处理
@@ -37,7 +42,7 @@ impl InferenceService {
             mean: [0.485, 0.456, 0.406],
             std: [0.229, 0.224, 0.225],
         };
-        
+
         let config = InferenceConfig {
             model_path: model_path.clone(),
             tokenizer_path: tokenizer_path.clone(),
@@ -52,20 +57,21 @@ impl InferenceService {
         println!("正在加载模型: {:?}", model_path);
         let engine = InferenceEngine::new(config, model_config)
             .with_context(|| format!("加载模型失败: {:?}", model_path))?;
-        
+
         println!("模型加载成功");
         let mut guard = self.engine.lock().unwrap();
         *guard = Some(engine);
-        
+
         Ok(())
     }
 
     /// 执行推理
     pub fn generate(&self, prompt: &str, max_tokens: usize) -> Result<String> {
         let guard = self.engine.lock().unwrap();
-        let engine = guard.as_ref()
+        let engine = guard
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("模型未初始化，请先调用 init_model"))?;
-        
+
         engine.generate(prompt, max_tokens)
     }
 
@@ -83,9 +89,10 @@ impl InferenceService {
         max_tokens: usize,
     ) -> Result<String> {
         let guard = self.engine.lock().unwrap();
-        let engine = guard.as_ref()
+        let engine = guard
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("模型未初始化，请先调用 init_model"))?;
-        
+
         engine.generate_multimodal(image_path, prompt, max_tokens)
     }
 
@@ -97,9 +104,10 @@ impl InferenceService {
         max_tokens: usize,
     ) -> Result<String> {
         let guard = self.engine.lock().unwrap();
-        let engine = guard.as_ref()
+        let engine = guard
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("模型未初始化，请先调用 init_model"))?;
-        
+
         engine.generate_multimodal_from_bytes(image_data, prompt, max_tokens)
     }
 }
@@ -111,13 +119,13 @@ impl Default for InferenceService {
 }
 
 /// 从模型目录自动检测并创建配置
-/// 
+///
 /// 尝试从模型目录读取 config.json 并创建配置
 /// 注意：由于 Config 结构体比较复杂，建议直接使用模型目录的 config.json
 /// 如果无法从文件加载，此函数会返回错误，提示用户需要手动提供配置
 pub fn create_qwen3vl_config_from_dir(model_dir: &PathBuf) -> Result<Config> {
     let config_path = model_dir.join("config.json");
-    
+
     if config_path.exists() {
         println!("找到配置文件: {:?}", config_path);
         // 注意：candle-transformers 的 Config 可能不直接支持从 JSON 反序列化
@@ -125,22 +133,24 @@ pub fn create_qwen3vl_config_from_dir(model_dir: &PathBuf) -> Result<Config> {
         return Err(anyhow::anyhow!(
             "Config 结构体不支持直接从 JSON 反序列化。\
             请参考 candle-transformers 文档手动构建 Config，或使用其他配置加载方法。\
-            配置文件路径: {:?}", config_path
+            配置文件路径: {:?}",
+            config_path
         ));
     }
-    
+
     Err(anyhow::anyhow!(
         "未找到配置文件 config.json: {:?}。\
-        请确保模型目录包含配置文件，或手动提供 Config 结构", model_dir
+        请确保模型目录包含配置文件，或手动提供 Config 结构",
+        model_dir
     ))
 }
 
 /// 创建 qwen3vl-8b 的默认配置
-/// 
+///
 /// 注意：这个方法需要手动构建完整的 Config 结构体。
 /// 由于 Config 包含很多字段且可能因版本而异，
 /// 建议从模型的 config.json 文件手动读取字段并构建 Config。
-/// 
+///
 /// 这是一个占位符实现，实际使用时应该：
 /// 1. 从 config.json 读取各个字段的值
 /// 2. 使用这些值构建 Config 结构体
@@ -181,7 +191,10 @@ impl GGUFInferenceService {
 
         if let Some(ref tokenizer_path) = tokenizer_path {
             if !tokenizer_path.exists() {
-                return Err(anyhow::anyhow!("Tokenizer 文件不存在: {:?}", tokenizer_path));
+                return Err(anyhow::anyhow!(
+                    "Tokenizer 文件不存在: {:?}",
+                    tokenizer_path
+                ));
             }
         }
 
@@ -202,10 +215,10 @@ impl GGUFInferenceService {
                 tracing::info!("模型文件大小: {} 字节", metadata.len());
             }
         }
-        
+
         let engine = GGUFInferenceEngine::from_file(config)
             .with_context(|| format!("加载 GGUF 模型失败，模型路径: {:?}", model_path))?;
-        
+
         tracing::info!("GGUF 模型加载成功");
         let mut guard = self.engine.lock().unwrap();
         *guard = Some(engine);
@@ -225,17 +238,28 @@ impl GGUFInferenceService {
 
         if let Some(ref tokenizer_path) = tokenizer_path {
             if !tokenizer_path.exists() {
-                return Err(anyhow::anyhow!("Tokenizer 文件不存在: {:?}", tokenizer_path));
+                return Err(anyhow::anyhow!(
+                    "Tokenizer 文件不存在: {:?}",
+                    tokenizer_path
+                ));
             }
         }
 
-        println!("正在从 HuggingFace Hub 下载 GGUF 模型: {}/{}", hf_repo_str, hf_filename_str);
+        println!(
+            "正在从 HuggingFace Hub 下载 GGUF 模型: {}/{}",
+            hf_repo_str, hf_filename_str
+        );
         let engine = GGUFInferenceEngine::from_hf_hub(
             hf_repo_str.clone(),
             hf_filename_str.clone(),
             tokenizer_path,
         )
-        .with_context(|| format!("从 HuggingFace Hub 加载 GGUF 模型失败: {}/{}", hf_repo_str, hf_filename_str))?;
+        .with_context(|| {
+            format!(
+                "从 HuggingFace Hub 加载 GGUF 模型失败: {}/{}",
+                hf_repo_str, hf_filename_str
+            )
+        })?;
 
         println!("GGUF 模型下载并加载成功");
         let mut guard = self.engine.lock().unwrap();
@@ -247,8 +271,9 @@ impl GGUFInferenceService {
     /// 执行推理
     pub fn generate(&self, prompt: &str, max_tokens: usize) -> Result<String> {
         let mut guard = self.engine.lock().unwrap();
-        let engine = guard.as_mut()
-            .ok_or_else(|| anyhow::anyhow!("模型未初始化，请先调用 init_model_from_file 或 init_model_from_hf_hub"))?;
+        let engine = guard.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("模型未初始化，请先调用 init_model_from_file 或 init_model_from_hf_hub")
+        })?;
 
         engine.generate(prompt, max_tokens)
     }
@@ -262,8 +287,9 @@ impl GGUFInferenceService {
     /// 测试模型前向传播
     pub fn test_forward(&self, seq_len: usize) -> Result<()> {
         let mut guard = self.engine.lock().unwrap();
-        let engine = guard.as_mut()
-            .ok_or_else(|| anyhow::anyhow!("模型未初始化，请先调用 init_model_from_file 或 init_model_from_hf_hub"))?;
+        let engine = guard.as_mut().ok_or_else(|| {
+            anyhow::anyhow!("模型未初始化，请先调用 init_model_from_file 或 init_model_from_hf_hub")
+        })?;
 
         engine.test_forward(seq_len)
     }
@@ -274,5 +300,3 @@ impl Default for GGUFInferenceService {
         Self::new()
     }
 }
-
-
