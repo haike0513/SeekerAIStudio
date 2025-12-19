@@ -15,27 +15,23 @@ const dict = {
 
 const defaultLang: Language = "zh-CN";
 
-export function useI18n() {
-  const [currentLang, setCurrentLang] = makePersisted(
-    createSignal<Language>(defaultLang),
-    { name: "language" }
-  );
-  
-  // 创建翻译函数 - 直接访问 currentLang() 确保响应式更新
-  const t = translator(() => {
-    // 直接访问 currentLang() 以确保追踪语言变化
-    const lang = currentLang();
-    return flatten(dict[lang]);
-  });
-  
-  const updateLanguage = (newLang: Language) => {
-    setCurrentLang(newLang);
-  };
+// 创建全局共享的语言 signal，确保所有组件使用同一个状态
+const [globalLocale, setGlobalLocale] = makePersisted(
+  createSignal<Language>(defaultLang),
+  { name: "language" }
+);
 
+// 创建全局共享的翻译函数，追踪全局语言变化
+const globalT = translator(() => {
+  const lang = globalLocale();
+  return flatten(dict[lang]);
+});
+
+export function useI18n() {
   return {
-    t,
-    locale: currentLang,
-    setLocale: updateLanguage,
+    t: globalT,
+    locale: globalLocale,
+    setLocale: setGlobalLocale,
   };
 }
 
