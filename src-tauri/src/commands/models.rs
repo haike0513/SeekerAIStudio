@@ -108,10 +108,12 @@ pub async fn get_local_models() -> Result<Vec<LocalModelInfo>, String> {
 }
 
 /// 扫描目录查找模型文件
-/// 支持按文件夹区分模型类型：
-/// - models/gguf/ 目录下的文件会被识别为 gguf 类型
-/// - models/safetensors/ 目录下的文件会被识别为 safetensors 类型
-/// - 根目录下的文件通过扩展名判断类型
+/// 支持以下文件夹结构：
+/// - models/gguf/模型名称/模型文件.gguf （推荐结构）
+/// - models/safetensors/模型名称/模型文件.safetensors （推荐结构）
+/// - models/gguf/模型文件.gguf （旧结构，兼容）
+/// - models/safetensors/模型文件.safetensors （旧结构，兼容）
+/// - models/模型文件.gguf 或 models/模型文件.safetensors （根目录，通过扩展名判断）
 fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
     let mut models = Vec::new();
     
@@ -127,33 +129,30 @@ fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
         let path = entry.path();
         
         if path.is_file() {
-            // 获取父目录名称，用于判断模型类型
-            let parent_dir_name = path.parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_lowercase());
+            // 获取路径的各个部分，用于判断模型类型
+            let path_components: Vec<String> = path
+                .components()
+                .filter_map(|c| {
+                    if let std::path::Component::Normal(name) = c {
+                        name.to_str().map(|s| s.to_lowercase())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             
             let extension = path.extension()
                 .and_then(|ext| ext.to_str())
                 .unwrap_or("")
                 .to_lowercase();
             
-            // 优先通过文件夹名称判断类型，其次通过扩展名
-            let model_type = if let Some(ref parent) = parent_dir_name {
-                if parent == "gguf" {
-                    Some("gguf")
-                } else if parent == "safetensors" {
-                    Some("safetensors")
-                } else {
-                    // 如果不在类型文件夹中，通过扩展名判断
-                    match extension.as_str() {
-                        "gguf" => Some("gguf"),
-                        "safetensors" => Some("safetensors"),
-                        _ => None,
-                    }
-                }
+            // 查找路径中是否包含类型文件夹（gguf 或 safetensors）
+            let model_type = if path_components.contains(&"gguf".to_string()) {
+                Some("gguf")
+            } else if path_components.contains(&"safetensors".to_string()) {
+                Some("safetensors")
             } else {
-                // 根目录，通过扩展名判断
+                // 如果路径中不包含类型文件夹，通过扩展名判断
                 match extension.as_str() {
                     "gguf" => Some("gguf"),
                     "safetensors" => Some("safetensors"),
@@ -165,10 +164,45 @@ fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
                 let metadata = fs::metadata(&path)
                     .context(format!("无法获取文件元数据: {}", path.display()))?;
                 
-                let name = path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("未知模型")
-                    .to_string();
+                // 确定模型名称：如果文件在 models/{type}/{model_name}/ 结构中，使用文件夹名称
+                // 否则使用文件名
+                let name = if let Some(parent) = path.parent() {
+                    // 检查父目录是否是模型文件夹（在 models/{type}/ 下）
+                    if let Some(grandparent) = parent.parent() {
+                        if let Some(grandparent_name) = grandparent.file_name() {
+                            let grandparent_str = grandparent_name.to_string_lossy().to_lowercase();
+                            // 如果祖父目录是 "gguf" 或 "safetensors"，说明文件在模型文件夹中
+                            if grandparent_str == "gguf" || grandparent_str == "safetensors" {
+                                // 使用父目录（模型文件夹）名称作为模型名称
+                                parent.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("未知模型")
+                                    .to_string()
+                            } else {
+                                // 不在标准结构中，使用文件名
+                                path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("未知模型")
+                                    .to_string()
+                            }
+                        } else {
+                            path.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("未知模型")
+                                .to_string()
+                        }
+                    } else {
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("未知模型")
+                            .to_string()
+                    }
+                } else {
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("未知模型")
+                        .to_string()
+                };
                 
                 let modified_time = metadata.modified()
                     .ok()
@@ -573,7 +607,90 @@ pub async fn download_model(
     let save_path = if let Some(ref custom_path) = request.save_path {
         PathBuf::from(custom_path)
     } else {
-        models_dir.join(&request.filename)
+        // 根据文件扩展名确定模型类型
+        let extension = Path::new(&request.filename)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        
+        // 判断是否为模型文件
+        let is_model_file = extension == "gguf" || extension == "safetensors";
+        
+        if is_model_file {
+            // 模型文件：创建文件夹结构 models/{model_type}/{model_name}/
+            let model_type = if extension == "gguf" { "gguf" } else { "safetensors" };
+            
+            // 优先使用 repo_id 的最后一部分作为模型名称（通常是模型标识符）
+            // 例如：HuggingFaceTB/SmolLM2-360M-Instruct-GGUF -> SmolLM2-360M-Instruct-GGUF
+            let mut model_name = request.repo_id
+                .split('/')
+                .last()
+                .unwrap_or("unknown")
+                .to_string();
+            
+            // 如果 repo_id 包含 "-GGUF" 或类似后缀，尝试去掉（因为文件夹名不需要）
+            // 但保留其他部分，如 "SmolLM2-360M-Instruct"
+            let suffixes = ["-GGUF", "-gguf", "-GGUF", "-Safetensors", "-safetensors"];
+            for suffix in &suffixes {
+                if model_name.ends_with(suffix) {
+                    model_name = model_name.trim_end_matches(suffix).to_string();
+                    break;
+                }
+            }
+            
+            // 创建文件夹结构：models/{model_type}/{model_name}/
+            let model_folder = models_dir.join(model_type).join(&model_name);
+            if let Err(e) = fs::create_dir_all(&model_folder) {
+                error!("创建模型文件夹失败: {}", e);
+                return Ok(DownloadModelResponse {
+                    success: false,
+                    message: format!("创建模型文件夹失败: {}", e),
+                    local_path: None,
+                    error: Some(format!("创建模型文件夹失败: {}", e)),
+                });
+            }
+            
+            // 保存路径：models/{model_type}/{model_name}/{filename}
+            model_folder.join(&request.filename)
+        } else if request.filename.contains("tokenizer") || extension == "json" {
+            // Tokenizer 文件：尝试找到对应的模型文件夹
+            // 从 repo_id 提取模型名称
+            let model_name = request.repo_id
+                .split('/')
+                .last()
+                .unwrap_or("unknown")
+                .to_string();
+            
+            // 先尝试在 gguf 目录下查找模型文件夹
+            let gguf_folder = models_dir.join("gguf").join(&model_name);
+            if gguf_folder.exists() {
+                // 如果 gguf 模型文件夹存在，将 tokenizer 放在那里
+                gguf_folder.join(&request.filename)
+            } else {
+                // 否则尝试 safetensors 目录
+                let safetensors_folder = models_dir.join("safetensors").join(&model_name);
+                if safetensors_folder.exists() {
+                    safetensors_folder.join(&request.filename)
+                } else {
+                    // 如果都不存在，创建 safetensors 文件夹（默认）
+                    let model_folder = models_dir.join("safetensors").join(&model_name);
+                    if let Err(e) = fs::create_dir_all(&model_folder) {
+                        error!("创建模型文件夹失败: {}", e);
+                        return Ok(DownloadModelResponse {
+                            success: false,
+                            message: format!("创建模型文件夹失败: {}", e),
+                            local_path: None,
+                            error: Some(format!("创建模型文件夹失败: {}", e)),
+                        });
+                    }
+                    model_folder.join(&request.filename)
+                }
+            }
+        } else {
+            // 未知类型，放在根目录
+            models_dir.join(&request.filename)
+        }
     };
     
     // 构建下载 URL

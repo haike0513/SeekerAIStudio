@@ -1,4 +1,4 @@
-import { createSignal, Show, For, onMount } from "solid-js";
+import { createSignal, Show, For, onMount, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +75,48 @@ export default function ModelManagementPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   }
+
+  // 从文件路径提取模型文件夹路径
+  // 例如：models/gguf/SmolLM2-360M-Instruct/file.gguf -> models/gguf/SmolLM2-360M-Instruct
+  function getModelFolderPath(filePath: string): string {
+    const pathParts = filePath.split(/[/\\]/);
+    // 查找 "gguf" 或 "safetensors" 的位置
+    const typeIndex = pathParts.findIndex(part => 
+      part.toLowerCase() === "gguf" || part.toLowerCase() === "safetensors"
+    );
+    if (typeIndex >= 0 && typeIndex < pathParts.length - 2) {
+      // 返回到模型文件夹的路径
+      return pathParts.slice(0, typeIndex + 2).join("/");
+    }
+    // 如果不在标准结构中，返回文件所在目录
+    const lastSlash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+    return lastSlash > 0 ? filePath.substring(0, lastSlash) : filePath;
+  }
+
+  // 按模型名称分组模型
+  const groupedModels = createMemo(() => {
+    const groups = new Map<string, LocalModelInfo[]>();
+    localModels().forEach(model => {
+      const key = `${model.model_type}-${model.name}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(model);
+    });
+    return Array.from(groups.entries()).map(([key, models]) => ({
+      key,
+      name: models[0].name,
+      modelType: models[0].model_type,
+      models,
+      totalSize: models.reduce((sum, m) => sum + m.size, 0),
+      folderPath: getModelFolderPath(models[0].path),
+      latestModified: models.reduce((latest, m) => {
+        if (!m.modified_time) return latest;
+        if (!latest) return m.modified_time;
+        return m.modified_time > latest ? m.modified_time : latest;
+      }, models[0].modified_time || "")
+    }));
+  });
 
   // 获取本地模型列表
   async function loadLocalModels() {
@@ -236,24 +278,28 @@ export default function ModelManagementPage() {
                       <TableHead>{t("models.size")}</TableHead>
                       <TableHead>{t("models.path")}</TableHead>
                       <TableHead>{t("models.modifiedTime")}</TableHead>
+                      <TableHead>文件数</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <For each={localModels()}>
-                      {(model) => (
+                    <For each={groupedModels()}>
+                      {(group) => (
                         <TableRow>
-                          <TableCell class="font-medium">{model.name}</TableCell>
+                          <TableCell class="font-medium">{group.name}</TableCell>
                           <TableCell>
-                            <Badge variant={model.model_type === "gguf" ? "default" : "secondary"}>
-                              {model.model_type.toUpperCase()}
+                            <Badge variant={group.modelType === "gguf" ? "default" : "secondary"}>
+                              {group.modelType.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell>{formatFileSize(model.size)}</TableCell>
-                          <TableCell class="text-sm text-muted-foreground max-w-xs truncate">
-                            {model.path}
+                          <TableCell>{formatFileSize(group.totalSize)}</TableCell>
+                          <TableCell class="text-sm text-muted-foreground max-w-xs truncate" title={group.folderPath}>
+                            {group.folderPath}
                           </TableCell>
                           <TableCell class="text-sm text-muted-foreground">
-                            {model.modified_time || "-"}
+                            {group.latestModified || "-"}
+                          </TableCell>
+                          <TableCell class="text-sm text-muted-foreground">
+                            {group.models.length}
                           </TableCell>
                         </TableRow>
                       )}

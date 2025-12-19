@@ -95,24 +95,73 @@ export default function InferencePanel() {
   const [localTokenizers, setLocalTokenizers] = createSignal<TokenizerInfo[]>([]);
   const [loadingModels, setLoadingModels] = createSignal(false);
 
+  // 从文件路径提取文件名（用于显示）
+  function getFileName(path: string): string {
+    const parts = path.split(/[/\\]/);
+    return parts[parts.length - 1] || path;
+  }
+
   // 从后端获取的 GGUF 模型列表
+  // 按模型名称分组，显示模型名称和文件名
   const ggufModels = createMemo(() => {
     const models = localModels().filter(m => m.model_type === "gguf");
-    return models.map(m => ({ 
-      value: m.path, 
-      label: m.name,
-      tokenizerPath: m.tokenizer_path 
-    }));
+    // 按模型名称分组
+    const groups = new Map<string, typeof models>();
+    models.forEach(m => {
+      if (!groups.has(m.name)) {
+        groups.set(m.name, []);
+      }
+      groups.get(m.name)!.push(m);
+    });
+    
+    // 如果同一模型有多个文件，显示为 "模型名称 (文件名)"
+    return Array.from(groups.entries()).flatMap(([modelName, files]) => {
+      if (files.length === 1) {
+        return [{
+          value: files[0].path,
+          label: modelName,
+          tokenizerPath: files[0].tokenizer_path
+        }];
+      } else {
+        // 多个文件，显示文件名区分
+        return files.map(f => ({
+          value: f.path,
+          label: `${modelName} (${getFileName(f.path)})`,
+          tokenizerPath: f.tokenizer_path
+        }));
+      }
+    });
   });
 
   // 从后端获取的 Safetensors 模型列表
   const safetensorsModels = createMemo(() => {
     const models = localModels().filter(m => m.model_type === "safetensors");
-    return models.map(m => ({ 
-      value: m.path, 
-      label: m.name,
-      tokenizerPath: m.tokenizer_path 
-    }));
+    // 按模型名称分组
+    const groups = new Map<string, typeof models>();
+    models.forEach(m => {
+      if (!groups.has(m.name)) {
+        groups.set(m.name, []);
+      }
+      groups.get(m.name)!.push(m);
+    });
+    
+    // 如果同一模型有多个文件，显示为 "模型名称 (文件名)"
+    return Array.from(groups.entries()).flatMap(([modelName, files]) => {
+      if (files.length === 1) {
+        return [{
+          value: files[0].path,
+          label: modelName,
+          tokenizerPath: files[0].tokenizer_path
+        }];
+      } else {
+        // 多个文件，显示文件名区分
+        return files.map(f => ({
+          value: f.path,
+          label: `${modelName} (${getFileName(f.path)})`,
+          tokenizerPath: f.tokenizer_path
+        }));
+      }
+    });
   });
 
   // 从后端获取的 Tokenizer 列表
