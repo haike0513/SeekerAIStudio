@@ -1,5 +1,5 @@
 use crate::commands::common::*;
-use crate::inference::GGUFInferenceService;
+use crate::inference::{GGUFInferenceService, InferenceService};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
@@ -164,6 +164,154 @@ pub async fn test_gguf_forward(
         Err(e) => {
             error!("前向传播测试失败: {}", e);
             Err(format!("前向传播测试失败: {}", e))
+        }
+    }
+}
+
+/// 统一推理命令：初始化模型并执行推理
+#[tauri::command]
+pub async fn unified_inference(
+    gguf_state: State<'_, Arc<GGUFInferenceService>>,
+    safetensors_state: State<'_, Arc<crate::inference::InferenceService>>,
+    request: UnifiedInferenceRequest,
+) -> Result<InferenceResponse, String> {
+    info!("开始统一推理，模型类型: {}, 模型路径: {}", request.model_type, request.model_path);
+    
+    let max_tokens = request.max_tokens.unwrap_or(512);
+    
+    // 根据模型类型初始化模型并执行推理
+    match request.model_type.as_str() {
+        "gguf" => {
+            // 初始化 GGUF 模型
+            let model_path = to_absolute_path(&PathBuf::from(&request.model_path))
+                .map_err(|e| format!("无法转换模型路径为绝对路径: {}", e))?;
+            
+            let tokenizer_path = request
+                .tokenizer_path
+                .map(|p| to_absolute_path(&PathBuf::from(&p)))
+                .transpose()
+                .map_err(|e| format!("无法转换 Tokenizer 路径为绝对路径: {}", e))?;
+            
+            // let init_request = InitGGUFFileRequest {
+            //     model_path: request.model_path.clone(),
+            //     tokenizer_path: request.tokenizer_path.clone(),
+            // };
+            
+            // 初始化模型
+            match gguf_state.init_model_from_file(model_path.clone(), tokenizer_path.clone()) {
+                Ok(_) => {
+                    info!("GGUF 模型初始化成功，开始推理");
+                }
+                Err(e) => {
+                    error!("GGUF 模型初始化失败: {}", e);
+                    return Ok(InferenceResponse {
+                        text: String::new(),
+                        success: false,
+                        error: Some(format!("GGUF 模型初始化失败: {}", e)),
+                    });
+                }
+            }
+            
+            // 执行推理
+            match gguf_state.generate(&request.prompt, max_tokens) {
+                Ok(text) => {
+                    info!("统一推理成功，生成长度: {}", text.len());
+                    Ok(InferenceResponse {
+                        text,
+                        success: true,
+                        error: None,
+                    })
+                }
+                Err(e) => {
+                    error!("统一推理失败: {}", e);
+                    Ok(InferenceResponse {
+                        text: String::new(),
+                        success: false,
+                        error: Some(format!("推理失败: {}", e)),
+                    })
+                }
+            }
+        }
+        "safetensors" => {
+            // 初始化 Safetensors 模型
+            if request.tokenizer_path.is_none() {
+                return Ok(InferenceResponse {
+                    text: String::new(),
+                    success: false,
+                    error: Some("Safetensors 模型需要提供 tokenizer_path".to_string()),
+                });
+            }
+            
+            let tokenizer_path = request.tokenizer_path.as_ref().unwrap();
+            let model_path = PathBuf::from(&request.model_path);
+            let config_path = model_path.join("../config.json");
+            
+            // 尝试从模型目录加载配置
+            let model_dir = if model_path.is_file() {
+                model_path.parent().unwrap_or(&model_path).to_path_buf()
+            } else {
+                model_path.clone()
+            };
+            
+            let model_config = match crate::inference::create_qwen3vl_config_from_dir(&model_dir) {
+                Ok(config) => config,
+                Err(e) => {
+                    return Ok(InferenceResponse {
+                        text: String::new(),
+                        success: false,
+                        error: Some(format!(
+                            "无法加载模型配置: {}. 请确保模型目录包含有效的 config.json 文件。",
+                            e
+                        )),
+                    });
+                }
+            };
+            
+            // 初始化模型
+            match safetensors_state.init_model(
+                model_path.clone(),
+                PathBuf::from(tokenizer_path),
+                model_config,
+            ) {
+                Ok(_) => {
+                    info!("Safetensors 模型初始化成功，开始推理");
+                }
+                Err(e) => {
+                    error!("Safetensors 模型初始化失败: {}", e);
+                    return Ok(InferenceResponse {
+                        text: String::new(),
+                        success: false,
+                        error: Some(format!("Safetensors 模型初始化失败: {}", e)),
+                    });
+                }
+            }
+            
+            // 执行推理
+            match safetensors_state.generate(&request.prompt, max_tokens) {
+                Ok(text) => {
+                    info!("统一推理成功，生成长度: {}", text.len());
+                    Ok(InferenceResponse {
+                        text,
+                        success: true,
+                        error: None,
+                    })
+                }
+                Err(e) => {
+                    error!("统一推理失败: {}", e);
+                    Ok(InferenceResponse {
+                        text: String::new(),
+                        success: false,
+                        error: Some(format!("推理失败: {}", e)),
+                    })
+                }
+            }
+        }
+        _ => {
+            Ok(InferenceResponse {
+                text: String::new(),
+                success: false,
+                error: Some(format!("不支持的模型类型: {}", request.model_type)),
+            })
         }
     }
 }

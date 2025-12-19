@@ -90,7 +90,9 @@ pub fn run() {
             commands::models::get_local_models,
             commands::models::get_local_tokenizers,
             commands::models::search_remote_models,
-            commands::models::download_model
+            commands::models::download_model,
+            // 统一推理命令
+            commands::gguf::unified_inference
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

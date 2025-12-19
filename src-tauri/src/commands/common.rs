@@ -59,3 +59,13 @@ pub struct InitGGUFHubRequest {
     pub hf_filename: String,
     pub tokenizer_path: Option<String>,
 }
+
+/// 统一推理请求（初始化模型并执行推理）
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UnifiedInferenceRequest {
+    pub model_path: String,
+    pub model_type: String, // "gguf" 或 "safetensors"
+    pub tokenizer_path: Option<String>,
+    pub prompt: String,
+    pub max_tokens: Option<usize>,
+}
