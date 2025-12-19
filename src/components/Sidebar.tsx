@@ -94,9 +94,17 @@ export default function Sidebar(props: SidebarProps) {
       >
         <div class="flex h-full flex-col">
           {/* Header */}
-          <div class="flex h-16 items-center border-b border-border px-4">
+          <div class="flex h-16 items-center border-b border-border px-4 gap-3 min-w-0">
+            <img 
+              src="/icon.png" 
+              alt="App Icon" 
+              class={cn(
+                "h-8 w-8 shrink-0 object-contain",
+                props.isCollapsed() && "mx-auto"
+              )} 
+            />
             <Show when={!props.isCollapsed()}>
-              <h2 class="text-lg font-semibold">{t("app.title")}</h2>
+              <h2 class="text-lg font-semibold truncate min-w-0">{t("app.title")}</h2>
             </Show>
           </div>
 
@@ -111,7 +119,7 @@ export default function Sidebar(props: SidebarProps) {
                       variant="ghost"
                       class={cn(
                         "w-full justify-start gap-3",
-                        props.isCollapsed() ? "px-0" : "px-1"
+                        props.isCollapsed() ? "px-2" : "px-3"
                       )}
                       onClick={item.onClick}
                     >
@@ -178,11 +186,19 @@ export default function Sidebar(props: SidebarProps) {
           )}
         >
           <div class="flex h-full flex-col">
-            <div class="flex h-16 items-center justify-between border-b border-border px-4">
-              <h2 class="text-lg font-semibold">{t("app.title")}</h2>
+            <div class="flex h-16 items-center justify-between border-b border-border px-4 gap-3 min-w-0">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <img 
+                  src="/icon.png" 
+                  alt="App Icon" 
+                  class="h-8 w-8 shrink-0 object-contain" 
+                />
+                <h2 class="text-lg font-semibold truncate min-w-0">{t("app.title")}</h2>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
+                class="shrink-0"
                 onClick={() => setIsMobileOpen(false)}
               >
                 <X class="h-5 w-5" />

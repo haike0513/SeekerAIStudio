@@ -14,6 +14,7 @@ import {
   Switch, 
   SwitchControl, 
   SwitchInput, 
+  SwitchLabel,
   SwitchThumb 
 } from "@/components/ui/switch";
 import { useI18n, type Language } from "@/lib/i18n";
@@ -372,61 +373,63 @@ function ServerControl() {
   });
 
   // 处理服务器开关切换
-  const handleServerToggle = async (checked: boolean) => {
+  const handleServerToggle = (checked: boolean) => {
     setIsLoading(true);
-    try {
-      if (checked) {
-        // 启动服务器
-        const status = await invoke<ServerStatus>("start_server");
-        setIsRunning(status.is_running);
-        setServerAddress(status.address || null);
-        if (status.is_running) {
-          console.log(t("app.settings.server.startSuccess"));
+    // 使用异步函数处理
+    (async () => {
+      try {
+        if (checked) {
+          // 启动服务器
+          const status = await invoke<ServerStatus>("start_server");
+          setIsRunning(status.is_running);
+          setServerAddress(status.address || null);
+          if (status.is_running) {
+            console.log(t("app.settings.server.startSuccess"));
+          } else {
+            console.error(t("app.settings.server.startFailed"));
+          }
         } else {
-          console.error(t("app.settings.server.startFailed"));
+          // 停止服务器
+          const status = await invoke<ServerStatus>("stop_server");
+          setIsRunning(status.is_running);
+          setServerAddress(status.address || null);
+          if (!status.is_running) {
+            console.log(t("app.settings.server.stopSuccess"));
+          } else {
+            console.error(t("app.settings.server.stopFailed"));
+          }
         }
-      } else {
-        // 停止服务器
-        const status = await invoke<ServerStatus>("stop_server");
-        setIsRunning(status.is_running);
-        setServerAddress(status.address || null);
-        if (!status.is_running) {
-          console.log(t("app.settings.server.stopSuccess"));
-        } else {
-          console.error(t("app.settings.server.stopFailed"));
-        }
+      } catch (error) {
+        console.error("服务器操作失败:", error);
+        // 操作失败后重新加载状态
+        await loadServerStatus();
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("服务器操作失败:", error);
-      // 操作失败后重新加载状态
-      await loadServerStatus();
-    } finally {
-      setIsLoading(false);
-    }
+    })();
   };
 
   return (
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <div class="space-y-0.5">
-          <Label>{t("app.settings.server.enabled")}</Label>
-          <p class="text-sm text-muted-foreground">
-            {isRunning() 
-              ? t("app.settings.server.enabledDescription")
-              : t("app.settings.server.disabledDescription")
-            }
-          </p>
-        </div>
+      <div class="space-y-2">
         <Switch
           checked={isRunning()}
           onChange={handleServerToggle}
           disabled={isLoading()}
+          class="flex items-center gap-x-2"
         >
           <SwitchInput />
           <SwitchControl>
             <SwitchThumb />
           </SwitchControl>
+          <SwitchLabel>{t("app.settings.server.enabled")}</SwitchLabel>
         </Switch>
+        <p class="text-sm text-muted-foreground pl-10">
+          {isRunning() 
+            ? t("app.settings.server.enabledDescription")
+            : t("app.settings.server.disabledDescription")
+          }
+        </p>
       </div>
 
       {isLoading() && (

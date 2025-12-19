@@ -2,10 +2,7 @@ import { createSignal } from "solid-js";
 import { Router, Route } from "@solidjs/router";
 import { useTheme } from "./lib/theme";
 import Sidebar from "./components/Sidebar";
-import InferencePanel from "./components/InferencePanel";
-import SettingsPage from "./components/SettingsPage";
-import WorkflowPage from "./components/WorkflowPage";
-import ModelManagementPage from "./components/ModelManagementPage";
+import { routes } from "./routes";
 import "./App.css";
 
 function Layout(props: { children: any }) {
@@ -35,10 +32,9 @@ function Layout(props: { children: any }) {
 function App() {
   return (
     <Router root={(props) => <Layout>{props.children}</Layout>}>
-      <Route path="/" component={InferencePanel} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/workflow" component={WorkflowPage} />
-      <Route path="/models" component={ModelManagementPage} />
+      {routes.map((route) => (
+        <Route path={route.path} component={route.component} />
+      ))}
     </Router>
   );
 }
