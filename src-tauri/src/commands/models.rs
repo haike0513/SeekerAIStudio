@@ -12,6 +12,15 @@ pub struct LocalModelInfo {
     pub size: u64,
     pub model_type: String, // "gguf" or "safetensors"
     pub modified_time: Option<String>,
+    pub tokenizer_path: Option<String>, // 同目录下的 tokenizer 路径
+}
+
+/// Tokenizer 信息
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TokenizerInfo {
+    pub name: String,
+    pub path: String,
+    pub modified_time: Option<String>,
 }
 
 /// 远程模型信息（HuggingFace）
@@ -99,6 +108,10 @@ pub async fn get_local_models() -> Result<Vec<LocalModelInfo>, String> {
 }
 
 /// 扫描目录查找模型文件
+/// 支持按文件夹区分模型类型：
+/// - models/gguf/ 目录下的文件会被识别为 gguf 类型
+/// - models/safetensors/ 目录下的文件会被识别为 safetensors 类型
+/// - 根目录下的文件通过扩展名判断类型
 fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
     let mut models = Vec::new();
     
@@ -114,14 +127,38 @@ fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
         let path = entry.path();
         
         if path.is_file() {
+            // 获取父目录名称，用于判断模型类型
+            let parent_dir_name = path.parent()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_lowercase());
+            
             let extension = path.extension()
                 .and_then(|ext| ext.to_str())
-                .unwrap_or("");
+                .unwrap_or("")
+                .to_lowercase();
             
-            let model_type = match extension {
-                "gguf" => Some("gguf"),
-                "safetensors" => Some("safetensors"),
-                _ => None,
+            // 优先通过文件夹名称判断类型，其次通过扩展名
+            let model_type = if let Some(ref parent) = parent_dir_name {
+                if parent == "gguf" {
+                    Some("gguf")
+                } else if parent == "safetensors" {
+                    Some("safetensors")
+                } else {
+                    // 如果不在类型文件夹中，通过扩展名判断
+                    match extension.as_str() {
+                        "gguf" => Some("gguf"),
+                        "safetensors" => Some("safetensors"),
+                        _ => None,
+                    }
+                }
+            } else {
+                // 根目录，通过扩展名判断
+                match extension.as_str() {
+                    "gguf" => Some("gguf"),
+                    "safetensors" => Some("safetensors"),
+                    _ => None,
+                }
             };
             
             if let Some(mt) = model_type {
@@ -142,22 +179,66 @@ fn scan_directory_for_models(dir: &Path) -> Result<Vec<LocalModelInfo>> {
                             .into()
                     });
                 
+                // 查找同目录下的 tokenizer
+                let tokenizer_path = find_tokenizer_in_directory(&path);
+                
                 models.push(LocalModelInfo {
                     name: name.clone(),
                     path: path.to_string_lossy().to_string(),
                     size: metadata.len(),
                     model_type: mt.to_string(),
                     modified_time,
+                    tokenizer_path,
                 });
             }
         } else if path.is_dir() {
-            // 递归扫描子目录
+            // 递归扫描子目录（但跳过类型文件夹的直接子目录，避免重复扫描）
+            // 这里我们仍然递归扫描，因为可能有嵌套结构
             let mut sub_models = scan_directory_for_models(&path)?;
             models.append(&mut sub_models);
         }
     }
     
     Ok(models)
+}
+
+/// 在指定目录下查找 tokenizer
+/// 查找顺序：
+/// 1. 目录下的 tokenizer.json 文件
+/// 2. 目录下的 tokenizer 子目录（包含 tokenizer.json）
+/// 3. 与模型同名的目录（去掉扩展名，例如：model.gguf -> model/ 目录）
+fn find_tokenizer_in_directory(model_path: &Path) -> Option<String> {
+    // 获取模型文件所在的目录
+    let model_dir = model_path.parent()?;
+    
+    // 检查是否有 tokenizer.json 文件（在模型同目录）
+    let tokenizer_json = model_dir.join("tokenizer.json");
+    if tokenizer_json.exists() && tokenizer_json.is_file() {
+        return Some(tokenizer_json.to_string_lossy().to_string());
+    }
+    
+    // 检查是否有 tokenizer 子目录
+    let tokenizer_dir = model_dir.join("tokenizer");
+    if tokenizer_dir.exists() && tokenizer_dir.is_dir() {
+        let tokenizer_json_in_dir = tokenizer_dir.join("tokenizer.json");
+        if tokenizer_json_in_dir.exists() {
+            return Some(tokenizer_dir.to_string_lossy().to_string());
+        }
+    }
+    
+    // 检查是否有与模型同名的目录（去掉扩展名）
+    // 例如：models/gguf/model.gguf -> models/gguf/model/ 目录
+    if let Some(file_stem) = model_path.file_stem() {
+        let model_name_dir = model_dir.join(file_stem);
+        if model_name_dir.exists() && model_name_dir.is_dir() {
+            let tokenizer_json_in_model_dir = model_name_dir.join("tokenizer.json");
+            if tokenizer_json_in_model_dir.exists() {
+                return Some(model_name_dir.to_string_lossy().to_string());
+            }
+        }
+    }
+    
+    None
 }
 
 /// 获取模型目录路径
@@ -177,6 +258,129 @@ fn get_models_directory() -> PathBuf {
     
     // 最后使用当前目录
     PathBuf::from("models")
+}
+
+/// 获取 tokenizer 目录路径（与 models 目录相同）
+fn get_tokenizers_directory() -> PathBuf {
+    // 使用与 models 相同的目录
+    get_models_directory()
+}
+
+/// 获取本地 tokenizer 列表
+#[tauri::command]
+pub async fn get_local_tokenizers() -> Result<Vec<TokenizerInfo>, String> {
+    info!("开始获取本地 tokenizer 列表");
+    
+    let tokenizers_dir = get_tokenizers_directory();
+    let mut tokenizers = Vec::new();
+    
+    if !tokenizers_dir.exists() {
+        info!("Tokenizer 目录不存在，创建目录: {}", tokenizers_dir.display());
+        if let Err(e) = fs::create_dir_all(&tokenizers_dir) {
+            error!("创建 tokenizer 目录失败: {}", e);
+            return Err(format!("创建 tokenizer 目录失败: {}", e));
+        }
+        return Ok(tokenizers);
+    }
+    
+    match scan_directory_for_tokenizers(&tokenizers_dir) {
+        Ok(mut found_tokenizers) => {
+            tokenizers.append(&mut found_tokenizers);
+        }
+        Err(e) => {
+            error!("扫描 tokenizer 目录失败: {}", e);
+            return Err(format!("扫描 tokenizer 目录失败: {}", e));
+        }
+    }
+    
+    info!("找到 {} 个本地 tokenizer", tokenizers.len());
+    Ok(tokenizers)
+}
+
+/// 扫描目录查找 tokenizer
+fn scan_directory_for_tokenizers(dir: &Path) -> Result<Vec<TokenizerInfo>> {
+    let mut tokenizers = Vec::new();
+    
+    if !dir.is_dir() {
+        return Ok(tokenizers);
+    }
+    
+    let entries = fs::read_dir(dir)
+        .context("无法读取目录")?;
+    
+    for entry in entries {
+        let entry = entry.context("无法读取目录项")?;
+        let path = entry.path();
+        
+        if path.is_dir() {
+            // Tokenizer 通常是目录，包含 tokenizer.json 等文件
+            // 检查目录中是否有 tokenizer.json 文件
+            let tokenizer_json = path.join("tokenizer.json");
+            let has_tokenizer_json = tokenizer_json.exists();
+            
+            // 也接受只有目录的情况（可能包含其他 tokenizer 文件）
+            if has_tokenizer_json || path.is_dir() {
+                let metadata = fs::metadata(&path)
+                    .context(format!("无法获取目录元数据: {}", path.display()))?;
+                
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("未知 Tokenizer")
+                    .to_string();
+                
+                let modified_time = metadata.modified()
+                    .ok()
+                    .and_then(|time| {
+                        chrono::DateTime::<chrono::Local>::from(time)
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string()
+                            .into()
+                    });
+                
+                tokenizers.push(TokenizerInfo {
+                    name: name.clone(),
+                    path: path.to_string_lossy().to_string(),
+                    modified_time,
+                });
+            }
+        } else if path.is_file() {
+            // 也支持单个 tokenizer.json 文件
+            let extension = path.extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            
+            if extension == "json" && path.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.contains("tokenizer"))
+                .unwrap_or(false) {
+                let metadata = fs::metadata(&path)
+                    .context(format!("无法获取文件元数据: {}", path.display()))?;
+                
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("未知 Tokenizer")
+                    .to_string();
+                
+                let modified_time = metadata.modified()
+                    .ok()
+                    .and_then(|time| {
+                        chrono::DateTime::<chrono::Local>::from(time)
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string()
+                            .into()
+                    });
+                
+                tokenizers.push(TokenizerInfo {
+                    name: name.clone(),
+                    path: path.to_string_lossy().to_string(),
+                    modified_time,
+                });
+            }
+        }
+    }
+    
+    Ok(tokenizers)
 }
 
 /// 搜索远程模型（HuggingFace）

@@ -117,6 +117,7 @@ export default {
     error: "Error",
     selectDefaultPath: "Please select default path",
     customPath: "Custom Path",
+    refreshModels: "Refresh Model List",
     placeholder: {
       modelPath: "Model file path (e.g., model.safetensors or model directory)",
       ggufModelPath: "GGUF model file path (e.g., model.gguf)",

@@ -117,6 +117,7 @@ export default {
     error: "エラー",
     selectDefaultPath: "デフォルトパスを選択してください",
     customPath: "カスタムパス",
+    refreshModels: "モデルリストを更新",
     placeholder: {
       modelPath: "モデルファイルパス (例: model.safetensors またはモデルディレクトリ)",
       ggufModelPath: "GGUF モデルファイルパス (例: model.gguf)",

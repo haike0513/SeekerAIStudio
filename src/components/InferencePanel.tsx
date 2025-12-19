@@ -1,4 +1,4 @@
-import { createSignal, Show, createMemo } from "solid-js";
+import { createSignal, Show, createMemo, onMount } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem, RadioGroupItemInput, RadioGroupItemLabel, RadioGroupItems, RadioGroupItemControl, RadioGroupItemIndicator } from "@/components/ui/radio-group";
 import { Slider, SliderTrack, SliderFill, SliderThumb } from "@/components/ui/slider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, Loader2 } from "lucide-solid";
+import { CheckCircle2, Loader2, RefreshCw } from "lucide-solid";
 import { useI18n } from "@/lib/i18n";
 import { 
   Select, 
@@ -57,6 +57,21 @@ interface InitGGUFHubRequest {
   tokenizer_path?: string;
 }
 
+interface LocalModelInfo {
+  name: string;
+  path: string;
+  size: number;
+  model_type: string;
+  modified_time?: string;
+  tokenizer_path?: string;
+}
+
+interface TokenizerInfo {
+  name: string;
+  path: string;
+  modified_time?: string;
+}
+
 export default function InferencePanel() {
   const { t } = useI18n();
   const [modelLoaded, setModelLoaded] = createSignal(false);
@@ -76,29 +91,53 @@ export default function InferencePanel() {
   const [ggufHfFilename, setGgufHfFilename] = createSignal("smollm2-360m-instruct-q8_0.gguf");
   const [ggufLoadFromHub, setGgufLoadFromHub] = createSignal(false);
   const [ggufModelLoaded, setGgufModelLoaded] = createSignal(false);
-  const [ggufModelPathCustom, setGgufModelPathCustom] = createSignal(false);
-  const [ggufTokenizerPathCustom, setGgufTokenizerPathCustom] = createSignal(false);
+  const [localModels, setLocalModels] = createSignal<LocalModelInfo[]>([]);
+  const [localTokenizers, setLocalTokenizers] = createSignal<TokenizerInfo[]>([]);
+  const [loadingModels, setLoadingModels] = createSignal(false);
 
-  // 默认的 GGUF 模型路径选项
-  const defaultGgufModelPaths = createMemo(() => [
-    { value: "", label: t("inference.selectDefaultPath") },
-    { value: "models/Qwen3-VL-8B-Instruct-Q4_K_M.gguf", label: "Qwen3-VL-8B-Instruct-Q4_K_M.gguf" },
-    { value: "models/mmproj-Qwen3-VL-8B-Instruct-F16.gguf", label: "mmproj-Qwen3-VL-8B-Instruct-F16" },
-    { value: "./models/llama-2-7b-chat-q4_0.gguf", label: "Llama 2 7B Chat (Q4_0)" },
-    { value: "./models/mistral-7b-instruct-v0.2-q4_0.gguf", label: "Mistral 7B Instruct (Q4_0)" },
-    { value: "./models/qwen2.5-7b-instruct-q4_0.gguf", label: "Qwen2.5 7B Instruct (Q4_0)" },
-    { value: "custom", label: t("inference.customPath") },
-  ]);
+  // 从后端获取的 GGUF 模型列表
+  const ggufModels = createMemo(() => {
+    const models = localModels().filter(m => m.model_type === "gguf");
+    return models.map(m => ({ 
+      value: m.path, 
+      label: m.name,
+      tokenizerPath: m.tokenizer_path 
+    }));
+  });
 
-  // 默认的 Tokenizer 路径选项
-  const defaultTokenizerPaths = createMemo(() => [
-    { value: "", label: t("inference.selectDefaultPath") },
-    { value: "./tokenizers/smollm2-360m-instruct", label: "SmolLM2-360M-Instruct Tokenizer" },
-    { value: "./tokenizers/llama-2-7b-chat", label: "Llama 2 7B Chat Tokenizer" },
-    { value: "./tokenizers/mistral-7b-instruct", label: "Mistral 7B Instruct Tokenizer" },
-    { value: "./tokenizers/qwen2.5-7b-instruct", label: "Qwen2.5 7B Instruct Tokenizer" },
-    { value: "custom", label: t("inference.customPath") },
-  ]);
+  // 从后端获取的 Safetensors 模型列表
+  const safetensorsModels = createMemo(() => {
+    const models = localModels().filter(m => m.model_type === "safetensors");
+    return models.map(m => ({ 
+      value: m.path, 
+      label: m.name,
+      tokenizerPath: m.tokenizer_path 
+    }));
+  });
+
+  // 从后端获取的 Tokenizer 列表
+  const tokenizerPaths = createMemo(() => {
+    const tokenizers = localTokenizers();
+    return tokenizers.map(t => ({ value: t.path, label: t.name }));
+  });
+
+  // 从后端加载模型列表和 tokenizer 列表
+  async function loadModels() {
+    setLoadingModels(true);
+    try {
+      const [models, tokenizers] = await Promise.all([
+        invoke<LocalModelInfo[]>("get_local_models"),
+        invoke<TokenizerInfo[]>("get_local_tokenizers"),
+      ]);
+      setLocalModels(models);
+      setLocalTokenizers(tokenizers);
+    } catch (error) {
+      console.error("加载模型列表失败:", error);
+      setMessage(`${t("inference.error")}: ${error}`);
+    } finally {
+      setLoadingModels(false);
+    }
+  }
 
   // 检查模型状态
   async function checkModelStatus() {
@@ -354,8 +393,11 @@ export default function InferencePanel() {
     }
   }
 
-  // 页面加载时检查模型状态
-  checkModelStatus();
+  // 页面加载时检查模型状态并加载模型列表
+  onMount(() => {
+    checkModelStatus();
+    loadModels();
+  });
 
   return (
     <div class="space-y-6">
@@ -427,69 +469,74 @@ export default function InferencePanel() {
                   <Label>{t("inference.modelPath")}:</Label>
                   <div class="flex gap-2">
                     <Show 
-                      when={ggufModelPathCustom()} 
+                      when={ggufModels().length > 0}
                       fallback={
-                        <Select
-                          options={defaultGgufModelPaths()}
-                          value={(() => {
-                            const currentPath = ggufModelPath();
-                            if (!currentPath) return "";
-                            const found = defaultGgufModelPaths().find(p => p.value === currentPath);
-                            return found ? currentPath : "custom";
-                          })()}
-                          onChange={(value) => {
-                            if (value === null || value === undefined) return;
-                            const pathValue = typeof value === 'object' && 'value' in value 
-                              ? (value as any).value 
-                              : value;
-                            if (pathValue === "custom") {
-                              setGgufModelPathCustom(true);
-                              if (!ggufModelPath()) {
-                                setGgufModelPath("");
-                              }
-                            } else if (pathValue) {
-                              setGgufModelPath(pathValue as string);
-                              setGgufModelPathCustom(false);
-                            }
-                          }}
+                        <Input
+                          type="text"
+                          value={ggufModelPath()}
+                          onInput={(e) => setGgufModelPath(e.currentTarget.value)}
                           placeholder={t("inference.placeholder.ggufModelPath")}
-                          optionValue={"value" as any}
-                          optionTextValue={"label" as any}
-                          itemComponent={(props) => {
-                            const option = props.item.rawValue as unknown as { value: string; label: string };
-                            return (
-                              <SelectItem item={props.item}>
-                                {option.label}
-                              </SelectItem>
-                            );
-                          }}
                           class="flex-1"
-                        >
-                          <SelectTrigger class="flex-1">
-                            <SelectValue<string>>{() => {
-                              const currentPath = ggufModelPath();
-                              if (!currentPath) return t("inference.selectDefaultPath") as string;
-                              const selected = defaultGgufModelPaths().find(p => p.value === currentPath);
-                              if (selected) return selected.label;
-                              return t("inference.customPath") as string;
-                            }}</SelectValue>
-                          </SelectTrigger>
-                          <SelectPortal>
-                            <SelectContent />
-                          </SelectPortal>
-                        </Select>
+                        />
                       }
                     >
-                      <Input
-                        type="text"
+                      <Select
+                        options={ggufModels()}
                         value={ggufModelPath()}
-                        onInput={(e) => setGgufModelPath(e.currentTarget.value)}
+                        onChange={(value) => {
+                          if (value === null || value === undefined) return;
+                          const pathValue = typeof value === 'object' && 'value' in value 
+                            ? (value as any).value 
+                            : value;
+                          if (pathValue) {
+                            setGgufModelPath(pathValue as string);
+                            // 如果模型有关联的 tokenizer，自动填充
+                            const selectedModel = ggufModels().find(m => m.value === pathValue);
+                            if (selectedModel?.tokenizerPath) {
+                              setGgufTokenizerPath(selectedModel.tokenizerPath);
+                            }
+                          }
+                        }}
                         placeholder={t("inference.placeholder.ggufModelPath")}
+                        optionValue={"value" as any}
+                        optionTextValue={"label" as any}
+                        itemComponent={(props) => {
+                          const option = props.item.rawValue as unknown as { value: string; label: string };
+                          return (
+                            <SelectItem item={props.item}>
+                              {option.label}
+                            </SelectItem>
+                          );
+                        }}
                         class="flex-1"
-                      />
+                        disabled={loadingModels()}
+                      >
+                        <SelectTrigger class="flex-1">
+                          <SelectValue<string>>{() => {
+                            const currentPath = ggufModelPath();
+                            if (!currentPath) return t("inference.placeholder.ggufModelPath") as string;
+                            const selected = ggufModels().find(p => p.value === currentPath);
+                            return selected ? selected.label : currentPath;
+                          }}</SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                          <SelectContent />
+                        </SelectPortal>
+                      </Select>
                     </Show>
                     <Button onClick={() => selectFile("model")} variant="outline">
                       {t("inference.select")}
+                    </Button>
+                    <Button 
+                      onClick={loadModels} 
+                      variant="outline" 
+                      size="sm"
+                      disabled={loadingModels()}
+                      title={t("inference.refreshModels")}
+                    >
+                      <Show when={loadingModels()} fallback={<RefreshCw class="h-4 w-4" />}>
+                        <Loader2 class="h-4 w-4 animate-spin" />
+                      </Show>
                     </Button>
                   </div>
                 </div>
@@ -522,66 +569,55 @@ export default function InferencePanel() {
                 <Label>{t("inference.tokenizerPathOptional")}:</Label>
                 <div class="flex gap-2">
                   <Show 
-                    when={ggufTokenizerPathCustom()} 
+                    when={tokenizerPaths().length > 0}
                     fallback={
-                      <Select
-                        options={defaultTokenizerPaths()}
-                        value={(() => {
-                          const currentPath = ggufTokenizerPath();
-                          if (!currentPath) return "";
-                          const found = defaultTokenizerPaths().find(p => p.value === currentPath);
-                          return found ? currentPath : "custom";
-                        })()}
-                        onChange={(value) => {
-                          if (value === null || value === undefined) return;
-                          const pathValue = typeof value === 'object' && 'value' in value 
-                            ? (value as any).value 
-                            : value;
-                          if (pathValue === "custom") {
-                            setGgufTokenizerPathCustom(true);
-                            if (!ggufTokenizerPath()) {
-                              setGgufTokenizerPath("");
-                            }
-                          } else if (pathValue) {
-                            setGgufTokenizerPath(pathValue as string);
-                            setGgufTokenizerPathCustom(false);
-                          }
-                        }}
+                      <Input
+                        type="text"
+                        value={ggufTokenizerPath()}
+                        onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
                         placeholder={t("inference.placeholder.tokenizerPathOptional")}
-                        optionValue={"value" as any}
-                        optionTextValue={"label" as any}
-                        itemComponent={(props) => {
-                          const option = props.item.rawValue as unknown as { value: string; label: string };
-                          return (
-                            <SelectItem item={props.item}>
-                              {option.label}
-                            </SelectItem>
-                          );
-                        }}
                         class="flex-1"
-                      >
-                        <SelectTrigger class="flex-1">
-                          <SelectValue<string>>{() => {
-                            const currentPath = ggufTokenizerPath();
-                            if (!currentPath) return t("inference.selectDefaultPath") as string;
-                            const selected = defaultTokenizerPaths().find(p => p.value === currentPath);
-                            if (selected) return selected.label;
-                            return t("inference.customPath") as string;
-                          }}</SelectValue>
-                        </SelectTrigger>
-                        <SelectPortal>
-                          <SelectContent />
-                        </SelectPortal>
-                      </Select>
+                      />
                     }
                   >
-                    <Input
-                      type="text"
+                    <Select
+                      options={tokenizerPaths()}
                       value={ggufTokenizerPath()}
-                      onInput={(e) => setGgufTokenizerPath(e.currentTarget.value)}
+                      onChange={(value) => {
+                        if (value === null || value === undefined) return;
+                        const pathValue = typeof value === 'object' && 'value' in value 
+                          ? (value as any).value 
+                          : value;
+                        if (pathValue) {
+                          setGgufTokenizerPath(pathValue as string);
+                        }
+                      }}
                       placeholder={t("inference.placeholder.tokenizerPathOptional")}
+                      optionValue={"value" as any}
+                      optionTextValue={"label" as any}
+                      itemComponent={(props) => {
+                        const option = props.item.rawValue as unknown as { value: string; label: string };
+                        return (
+                          <SelectItem item={props.item}>
+                            {option.label}
+                          </SelectItem>
+                        );
+                      }}
                       class="flex-1"
-                    />
+                      disabled={loadingModels()}
+                    >
+                      <SelectTrigger class="flex-1">
+                        <SelectValue<string>>{() => {
+                          const currentPath = ggufTokenizerPath();
+                          if (!currentPath) return t("inference.placeholder.tokenizerPathOptional") as string;
+                          const selected = tokenizerPaths().find(p => p.value === currentPath);
+                          return selected ? selected.label : currentPath;
+                        }}</SelectValue>
+                      </SelectTrigger>
+                      <SelectPortal>
+                        <SelectContent />
+                      </SelectPortal>
+                    </Select>
                   </Show>
                   <Button onClick={() => selectFile("tokenizer")} variant="outline">
                     {t("inference.select")}
@@ -613,15 +649,75 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.modelPath")}:</Label>
                 <div class="flex gap-2">
-                  <Input
-                    type="text"
-                    value={modelPath()}
-                    onInput={(e) => setModelPath(e.currentTarget.value)}
-                    placeholder={t("inference.placeholder.modelPath")}
-                    class="flex-1"
-                  />
+                  <Show 
+                    when={safetensorsModels().length > 0}
+                    fallback={
+                      <Input
+                        type="text"
+                        value={modelPath()}
+                        onInput={(e) => setModelPath(e.currentTarget.value)}
+                        placeholder={t("inference.placeholder.modelPath")}
+                        class="flex-1"
+                      />
+                    }
+                  >
+                    <Select
+                      options={safetensorsModels()}
+                      value={modelPath()}
+                      onChange={(value) => {
+                        if (value === null || value === undefined) return;
+                        const pathValue = typeof value === 'object' && 'value' in value 
+                          ? (value as any).value 
+                          : value;
+                        if (pathValue) {
+                          setModelPath(pathValue as string);
+                          // 如果模型有关联的 tokenizer，自动填充
+                          const selectedModel = safetensorsModels().find(m => m.value === pathValue);
+                          if (selectedModel?.tokenizerPath) {
+                            setTokenizerPath(selectedModel.tokenizerPath);
+                          }
+                        }
+                      }}
+                      placeholder={t("inference.placeholder.modelPath")}
+                      optionValue={"value" as any}
+                      optionTextValue={"label" as any}
+                      itemComponent={(props) => {
+                        const option = props.item.rawValue as unknown as { value: string; label: string };
+                        return (
+                          <SelectItem item={props.item}>
+                            {option.label}
+                          </SelectItem>
+                        );
+                      }}
+                      class="flex-1"
+                      disabled={loadingModels()}
+                    >
+                      <SelectTrigger class="flex-1">
+                        <SelectValue<string>>{() => {
+                          const currentPath = modelPath();
+                          if (!currentPath) return t("inference.placeholder.modelPath") as string;
+                          const selected = safetensorsModels().find(p => p.value === currentPath);
+                          return selected ? selected.label : currentPath;
+                        }}</SelectValue>
+                      </SelectTrigger>
+                      <SelectPortal>
+                        <SelectContent />
+                      </SelectPortal>
+                    </Select>
+                  </Show>
                   <Button onClick={() => selectFile("model")} variant="outline">
                     {t("inference.select")}
+                  </Button>
+                  <Button 
+                    onClick={loadModels} 
+                    variant="outline" 
+                    size="sm"
+                    disabled={loadingModels()}
+                    title={t("inference.refreshModels")}
+                  >
+                    <Show when={loadingModels()} fallback={<RefreshCw class="h-4 w-4" />}>
+                      <Loader2 class="h-4 w-4 animate-spin" />
+                    </Show>
                   </Button>
                 </div>
               </div>
@@ -629,13 +725,57 @@ export default function InferencePanel() {
               <div class="space-y-2">
                 <Label>{t("inference.tokenizerPath")}:</Label>
                 <div class="flex gap-2">
-                  <Input
-                    type="text"
-                    value={tokenizerPath()}
-                    onInput={(e) => setTokenizerPath(e.currentTarget.value)}
-                    placeholder={t("inference.placeholder.tokenizerPath")}
-                    class="flex-1"
-                  />
+                  <Show 
+                    when={tokenizerPaths().length > 0}
+                    fallback={
+                      <Input
+                        type="text"
+                        value={tokenizerPath()}
+                        onInput={(e) => setTokenizerPath(e.currentTarget.value)}
+                        placeholder={t("inference.placeholder.tokenizerPath")}
+                        class="flex-1"
+                      />
+                    }
+                  >
+                    <Select
+                      options={tokenizerPaths()}
+                      value={tokenizerPath()}
+                      onChange={(value) => {
+                        if (value === null || value === undefined) return;
+                        const pathValue = typeof value === 'object' && 'value' in value 
+                          ? (value as any).value 
+                          : value;
+                        if (pathValue) {
+                          setTokenizerPath(pathValue as string);
+                        }
+                      }}
+                      placeholder={t("inference.placeholder.tokenizerPath")}
+                      optionValue={"value" as any}
+                      optionTextValue={"label" as any}
+                      itemComponent={(props) => {
+                        const option = props.item.rawValue as unknown as { value: string; label: string };
+                        return (
+                          <SelectItem item={props.item}>
+                            {option.label}
+                          </SelectItem>
+                        );
+                      }}
+                      class="flex-1"
+                      disabled={loadingModels()}
+                    >
+                      <SelectTrigger class="flex-1">
+                        <SelectValue<string>>{() => {
+                          const currentPath = tokenizerPath();
+                          if (!currentPath) return t("inference.placeholder.tokenizerPath") as string;
+                          const selected = tokenizerPaths().find(p => p.value === currentPath);
+                          return selected ? selected.label : currentPath;
+                        }}</SelectValue>
+                      </SelectTrigger>
+                      <SelectPortal>
+                        <SelectContent />
+                      </SelectPortal>
+                    </Select>
+                  </Show>
                   <Button onClick={() => selectFile("tokenizer")} variant="outline">
                     {t("inference.select")}
                   </Button>

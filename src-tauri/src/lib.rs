@@ -88,6 +88,7 @@ pub fn run() {
             commands::gguf::test_gguf_forward,
             // 模型管理相关命令
             commands::models::get_local_models,
+            commands::models::get_local_tokenizers,
             commands::models::search_remote_models,
             commands::models::download_model
         ])
