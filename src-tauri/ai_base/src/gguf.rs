@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
-use candle_core::{Device, Tensor};
 use candle_core::quantized::gguf_file;
+use candle_core::{Device, Tensor};
 use candle_nn;
-use candle_transformers::models::quantized_llama::ModelWeights;
+use candle_transformers::models::quantized_llama::ModelWeights as LlamaModels;
+use candle_transformers::models::quantized_qwen3::ModelWeights as Qwen3Models;
 use std::fs::File;
 use std::path::PathBuf;
 use tokenizers::Tokenizer;
@@ -18,14 +19,16 @@ pub struct GGUFConfig {
     pub hf_repo: Option<String>,
     /// HuggingFace 模型文件名（如果从 HF Hub 下载）
     pub hf_filename: Option<String>,
-    /// 最大序列长度
+    /// Maximum sequence length
     pub max_seq_len: usize,
-    /// 温度参数（用于采样）
+    /// Temperature parameter (for sampling)
     pub temperature: f64,
-    /// Top-p 采样参数
+    /// Top-p sampling parameter
     pub top_p: f64,
-    /// Top-k 采样参数
+    /// Top-k sampling parameter
     pub top_k: usize,
+    /// Model architecture ("llama" or "qwen3")
+    pub architecture: Option<String>,
 }
 
 impl Default for GGUFConfig {
@@ -39,6 +42,22 @@ impl Default for GGUFConfig {
             temperature: 0.8,
             top_p: 0.9,
             top_k: 40,
+            architecture: None,
+        }
+    }
+}
+
+/// Enum for different GGUF model architectures
+pub enum GGUFModel {
+    Llama(LlamaModels),
+    Qwen3(Qwen3Models),
+}
+
+impl GGUFModel {
+    pub fn forward(&mut self, x: &Tensor, index_pos: usize) -> Result<Tensor> {
+        match self {
+            Self::Llama(m) => m.forward(x, index_pos).map_err(|e| anyhow::anyhow!(e)),
+            Self::Qwen3(m) => m.forward(x, index_pos).map_err(|e| anyhow::anyhow!(e)),
         }
     }
 }
@@ -46,7 +65,7 @@ impl Default for GGUFConfig {
 /// GGUF 量化模型推理引擎
 pub struct GGUFInferenceEngine {
     device: Device,
-    model: ModelWeights,
+    model: GGUFModel,
     tokenizer: Option<Tokenizer>,
     config: GGUFConfig,
 }
@@ -58,50 +77,48 @@ impl GGUFInferenceEngine {
     }
 
     /// 从本地文件加载 GGUF 模型（支持指定设备）
-    pub fn from_file_with_device(
-        config: GGUFConfig,
-        device: Option<Device>,
-    ) -> Result<Self> {
-        let device = device.unwrap_or_else(|| {
-            Device::cuda_if_available(0).unwrap_or_else(|_| Device::Cpu)
-        });
+    pub fn from_file_with_device(config: GGUFConfig, device: Option<Device>) -> Result<Self> {
+        let device =
+            device.unwrap_or_else(|| Device::cuda_if_available(0).unwrap_or_else(|_| Device::Cpu));
 
         // 打开 GGUF 文件
         let mut file = File::open(&config.model_path)
             .with_context(|| format!("无法打开模型文件: {:?}", config.model_path))?;
 
         // 读取 GGUF 内容
-        let ct = gguf_file::Content::read(&mut file)
-            .with_context(|| format!("无法读取 GGUF 文件内容，文件路径: {:?}", config.model_path))?;
+        let ct = gguf_file::Content::read(&mut file).with_context(|| {
+            format!("无法读取 GGUF 文件内容，文件路径: {:?}", config.model_path)
+        })?;
 
-        // 加载模型权重
-        let model = ModelWeights::from_gguf(ct, &mut file, &device)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "无法从 GGUF 文件加载模型权重\n\
-                    文件路径: {:?}\n\
-                    设备: {:?}\n\
-                    原始错误: {}\n\
-                    \n\
-                    这可能是因为:\n\
-                    1. GGUF 文件格式不兼容（例如，Qwen3-VL 是视觉语言模型，可能不支持标准的 Llama 量化格式）\n\
-                    2. 文件损坏或不完整\n\
-                    3. 文件路径不正确\n\
-                    4. 设备初始化失败\n\
-                    \n\
-                    请检查:\n\
-                    - 文件是否存在且可读\n\
-                    - 文件是否为有效的 GGUF 格式\n\
-                    - 模型架构是否与 quantized_llama::ModelWeights 兼容",
-                    config.model_path, device, e
-                )
-            })?;
+        // Load model weights based on architecture or default to Llama
+        let architecture = config.architecture.as_deref().unwrap_or("llama");
+
+        let model = match architecture {
+            "qwen3" | "qwen3vl" => {
+                let model = Qwen3Models::from_gguf(ct, &mut file, &device)
+                    .map_err(|e| anyhow::anyhow!("Failed to load Qwen3 GGUF model: {}", e))?;
+                GGUFModel::Qwen3(model)
+            }
+            _ => {
+                // Default to Llama
+                let model = LlamaModels::from_gguf(ct, &mut file, &device).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to load Llama GGUF model: {}\n\
+                            Architecture used: {}\n\
+                            If this is not a Llama model, please specify the architecture.",
+                        e,
+                        architecture
+                    )
+                })?;
+                GGUFModel::Llama(model)
+            }
+        };
 
         // 加载 tokenizer（如果提供了路径）
         let tokenizer = if let Some(ref tokenizer_path) = config.tokenizer_path {
             Some(
                 Tokenizer::from_file(tokenizer_path)
-                    .map_err(|e| anyhow::anyhow!("无法加载 tokenizer: {}", e))?
+                    .map_err(|e| anyhow::anyhow!("无法加载 tokenizer: {}", e))?,
             )
         } else {
             None
@@ -120,8 +137,9 @@ impl GGUFInferenceEngine {
         hf_repo: impl Into<String>,
         hf_filename: impl Into<String>,
         tokenizer_path: Option<PathBuf>,
+        architecture: Option<String>,
     ) -> Result<Self> {
-        Self::from_hf_hub_with_device(hf_repo, hf_filename, tokenizer_path, None)
+        Self::from_hf_hub_with_device(hf_repo, hf_filename, tokenizer_path, architecture, None)
     }
 
     /// 从 HuggingFace Hub 下载并加载 GGUF 模型（支持指定设备）
@@ -129,6 +147,7 @@ impl GGUFInferenceEngine {
         hf_repo: impl Into<String>,
         hf_filename: impl Into<String>,
         tokenizer_path: Option<PathBuf>,
+        architecture: Option<String>,
         device: Option<Device>,
     ) -> Result<Self> {
         use hf_hub::api::sync::Api;
@@ -137,21 +156,25 @@ impl GGUFInferenceEngine {
         let hf_filename_str = hf_filename.into();
 
         // 创建 HuggingFace API
-        let api = Api::new()
-            .context("无法创建 HuggingFace API")?;
+        let api = Api::new().context("无法创建 HuggingFace API")?;
 
         // 获取模型仓库
         let repo = api.model(hf_repo_str.clone());
 
         // 下载模型文件
-        let model_path = repo.get(&hf_filename_str)
-            .with_context(|| format!("无法从 HuggingFace Hub 下载模型: {}/{}", hf_repo_str, hf_filename_str))?;
+        let model_path = repo.get(&hf_filename_str).with_context(|| {
+            format!(
+                "无法从 HuggingFace Hub 下载模型: {}/{}",
+                hf_repo_str, hf_filename_str
+            )
+        })?;
 
         let config = GGUFConfig {
             model_path: model_path.clone(),
             tokenizer_path,
             hf_repo: Some(hf_repo_str),
             hf_filename: Some(hf_filename_str),
+            architecture,
             ..Default::default()
         };
 
@@ -160,7 +183,8 @@ impl GGUFInferenceEngine {
 
     /// 执行前向传播
     pub fn forward(&mut self, input_ids: &Tensor, index_pos: usize) -> Result<Tensor> {
-        self.model.forward(input_ids, index_pos)
+        self.model
+            .forward(input_ids, index_pos)
             .context("模型前向传播失败")
     }
 
@@ -168,7 +192,9 @@ impl GGUFInferenceEngine {
     pub fn generate(&mut self, prompt: &str, max_new_tokens: usize) -> Result<String> {
         // 提前提取所有需要的信息，避免借用冲突
         let (input_ids, eos_token_id) = {
-            let tokenizer = self.tokenizer.as_ref()
+            let tokenizer = self
+                .tokenizer
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Tokenizer 未加载，无法执行文本生成"))?;
 
             // 编码输入文本
@@ -188,7 +214,8 @@ impl GGUFInferenceEngine {
             }
 
             // 获取结束标记 ID
-            let eos_token_id = tokenizer.token_to_id("<|endoftext|>")
+            let eos_token_id = tokenizer
+                .token_to_id("<|endoftext|>")
                 .or_else(|| tokenizer.token_to_id("</s>"))
                 .or_else(|| tokenizer.token_to_id("<|im_end|>"))
                 .unwrap_or_else(|| {
@@ -204,10 +231,7 @@ impl GGUFInferenceEngine {
         // 转换为 Tensor（在独立作用域中借用 device）
         let input_tensor = {
             let device = &self.device;
-            Tensor::new(
-                input_ids.as_slice(),
-                device
-            )?.unsqueeze(0)?
+            Tensor::new(input_ids.as_slice(), device)?.unsqueeze(0)?
         };
 
         // 执行推理
@@ -220,9 +244,7 @@ impl GGUFInferenceEngine {
 
         // 获取最后一个 token 的 logits 并生成第一个 token
         let seq_len = logits.dim(1)?;
-        let mut last_logits = logits
-            .narrow(1, seq_len - 1, 1)?
-            .squeeze(1)?;
+        let mut last_logits = logits.narrow(1, seq_len - 1, 1)?.squeeze(1)?;
 
         // 生成循环
         for _ in 0..max_new_tokens {
@@ -242,8 +264,7 @@ impl GGUFInferenceEngine {
             // 准备下一个 token 的输入（只包含单个 token，在独立作用域中借用 device）
             let next_token_tensor = {
                 let device = &self.device;
-                Tensor::new(&[next_token], device)?
-                    .unsqueeze(0)?
+                Tensor::new(&[next_token], device)?.unsqueeze(0)?
             };
 
             // 前向传播（只处理新生成的 token）
@@ -252,14 +273,14 @@ impl GGUFInferenceEngine {
 
             // 获取最后一个 token 的 logits
             let seq_len = logits.dim(1)?;
-            last_logits = logits
-                .narrow(1, seq_len - 1, 1)?
-                .squeeze(1)?;
+            last_logits = logits.narrow(1, seq_len - 1, 1)?.squeeze(1)?;
         }
 
         // 解码生成的文本
         let generated_text = {
-            let tokenizer = self.tokenizer.as_ref()
+            let tokenizer = self
+                .tokenizer
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Tokenizer 未加载"))?;
             tokenizer
                 .decode(&generated_tokens, true)
@@ -281,14 +302,18 @@ impl GGUFInferenceEngine {
 
     /// 测试模型前向传播（用于验证模型加载是否成功）
     pub fn test_forward(&mut self, seq_len: usize) -> Result<()> {
-        let input_tensor = Tensor::arange(0u32, seq_len as u32, &self.device)?
-            .reshape((1, seq_len))?;
+        let input_tensor =
+            Tensor::arange(0u32, seq_len as u32, &self.device)?.reshape((1, seq_len))?;
 
         let start = std::time::Instant::now();
         let _logits = self.forward(&input_tensor, 0)?;
         let elapsed = start.elapsed();
 
-        println!("前向传播耗时: {} ms (序列长度: {})", elapsed.as_millis(), seq_len);
+        println!(
+            "前向传播耗时: {} ms (序列长度: {})",
+            elapsed.as_millis(),
+            seq_len
+        );
         Ok(())
     }
 }
@@ -306,11 +331,8 @@ fn sample_token_from_logits(logits: &Tensor, config: &GGUFConfig) -> Result<u32>
 
     // 应用 softmax 获取概率分布
     let probs = candle_nn::ops::softmax_last_dim(&logits)?;
-    let mut probs_vec: Vec<(usize, f32)> = probs
-        .to_vec1::<f32>()?
-        .into_iter()
-        .enumerate()
-        .collect();
+    let mut probs_vec: Vec<(usize, f32)> =
+        probs.to_vec1::<f32>()?.into_iter().enumerate().collect();
 
     // Top-k 采样：只保留 top-k 个 token
     if config.top_k > 0 && config.top_k < vocab_size {
@@ -368,14 +390,14 @@ fn sample_token_from_logits(logits: &Tensor, config: &GGUFConfig) -> Result<u32>
 }
 
 /// 示例：从 HuggingFace Hub 下载并测试 GGUF 模型
-/// 
+///
 /// 这个函数展示了如何从 HuggingFace Hub 下载 GGUF 模型并测试前向传播，
 /// 类似于用户提供的示例代码。
-/// 
+///
 /// # 示例
 /// ```no_run
 /// use ai_base::gguf::GGUFInferenceEngine;
-/// 
+///
 /// fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ///     // 从 HuggingFace Hub 下载并加载模型
 ///     let mut engine = GGUFInferenceEngine::from_hf_hub(
@@ -396,11 +418,12 @@ pub fn example_load_and_test_gguf() -> Result<()> {
         "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
         "smollm2-360m-instruct-q8_0.gguf",
         None, // tokenizer_path
+        None, // default to llama
     )?;
-    
+
     // 测试前向传播（序列长度 128）
     engine.test_forward(128)?;
-    
+
     Ok(())
 }
 
@@ -415,4 +438,3 @@ mod tests {
         assert_eq!(config.temperature, 0.8);
     }
 }
-

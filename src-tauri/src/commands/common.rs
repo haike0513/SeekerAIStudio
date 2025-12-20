@@ -50,6 +50,7 @@ pub struct InitModelResponse {
 pub struct InitGGUFFileRequest {
     pub model_path: String,
     pub tokenizer_path: Option<String>,
+    pub architecture: Option<String>,
 }
 
 /// GGUF 初始化模型请求（从 HuggingFace Hub）
@@ -58,6 +59,7 @@ pub struct InitGGUFHubRequest {
     pub hf_repo: String,
     pub hf_filename: String,
     pub tokenizer_path: Option<String>,
+    pub architecture: Option<String>,
 }
 
 /// 统一推理请求（初始化模型并执行推理）
@@ -65,6 +67,7 @@ pub struct InitGGUFHubRequest {
 pub struct UnifiedInferenceRequest {
     pub model_path: String,
     pub model_type: String, // "gguf" 或 "safetensors"
+    pub architecture: Option<String>,
     pub tokenizer_path: Option<String>,
     pub prompt: String,
     pub max_tokens: Option<usize>,

@@ -48,7 +48,11 @@ pub async fn init_gguf_model_from_file(
         info!("转换后的 Tokenizer 绝对路径: {}", tp.display());
     }
 
-    match state.init_model_from_file(model_path.clone(), tokenizer_path.clone()) {
+    match state.init_model_from_file(
+        model_path.clone(),
+        tokenizer_path.clone(),
+        request.architecture.clone(),
+    ) {
         Ok(_) => {
             info!("GGUF 模型初始化成功");
             Ok(InitModelResponse {
@@ -86,6 +90,7 @@ pub async fn init_gguf_model_from_hub(
         request.hf_repo.clone(),
         request.hf_filename.clone(),
         tokenizer_path.clone(),
+        request.architecture.clone(),
     ) {
         Ok(_) => {
             info!("GGUF 模型从 HuggingFace Hub 下载并初始化成功");
@@ -175,30 +180,37 @@ pub async fn unified_inference(
     safetensors_state: State<'_, Arc<crate::inference::InferenceService>>,
     request: UnifiedInferenceRequest,
 ) -> Result<InferenceResponse, String> {
-    info!("开始统一推理，模型类型: {}, 模型路径: {}", request.model_type, request.model_path);
-    
+    info!(
+        "开始统一推理，模型类型: {}, 模型路径: {}",
+        request.model_type, request.model_path
+    );
+
     let max_tokens = request.max_tokens.unwrap_or(512);
-    
+
     // 根据模型类型初始化模型并执行推理
     match request.model_type.as_str() {
         "gguf" => {
             // 初始化 GGUF 模型
             let model_path = to_absolute_path(&PathBuf::from(&request.model_path))
                 .map_err(|e| format!("无法转换模型路径为绝对路径: {}", e))?;
-            
+
             let tokenizer_path = request
                 .tokenizer_path
                 .map(|p| to_absolute_path(&PathBuf::from(&p)))
                 .transpose()
                 .map_err(|e| format!("无法转换 Tokenizer 路径为绝对路径: {}", e))?;
-            
+
             // let init_request = InitGGUFFileRequest {
             //     model_path: request.model_path.clone(),
             //     tokenizer_path: request.tokenizer_path.clone(),
             // };
-            
+
             // 初始化模型
-            match gguf_state.init_model_from_file(model_path.clone(), tokenizer_path.clone()) {
+            match gguf_state.init_model_from_file(
+                model_path.clone(),
+                tokenizer_path.clone(),
+                request.architecture.clone(),
+            ) {
                 Ok(_) => {
                     info!("GGUF 模型初始化成功，开始推理");
                 }
@@ -211,7 +223,7 @@ pub async fn unified_inference(
                     });
                 }
             }
-            
+
             // 执行推理
             match gguf_state.generate(&request.prompt, max_tokens) {
                 Ok(text) => {
@@ -241,18 +253,18 @@ pub async fn unified_inference(
                     error: Some("Safetensors 模型需要提供 tokenizer_path".to_string()),
                 });
             }
-            
+
             let tokenizer_path = request.tokenizer_path.as_ref().unwrap();
             let model_path = PathBuf::from(&request.model_path);
             let config_path = model_path.join("../config.json");
-            
+
             // 尝试从模型目录加载配置
             let model_dir = if model_path.is_file() {
                 model_path.parent().unwrap_or(&model_path).to_path_buf()
             } else {
                 model_path.clone()
             };
-            
+
             let model_config = match crate::inference::create_qwen3vl_config_from_dir(&model_dir) {
                 Ok(config) => config,
                 Err(e) => {
@@ -266,7 +278,7 @@ pub async fn unified_inference(
                     });
                 }
             };
-            
+
             // 初始化模型
             match safetensors_state.init_model(
                 model_path.clone(),
@@ -285,7 +297,7 @@ pub async fn unified_inference(
                     });
                 }
             }
-            
+
             // 执行推理
             match safetensors_state.generate(&request.prompt, max_tokens) {
                 Ok(text) => {
@@ -306,12 +318,10 @@ pub async fn unified_inference(
                 }
             }
         }
-        _ => {
-            Ok(InferenceResponse {
-                text: String::new(),
-                success: false,
-                error: Some(format!("不支持的模型类型: {}", request.model_type)),
-            })
-        }
+        _ => Ok(InferenceResponse {
+            text: String::new(),
+            success: false,
+            error: Some(format!("不支持的模型类型: {}", request.model_type)),
+        }),
     }
 }

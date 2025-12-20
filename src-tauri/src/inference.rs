@@ -183,6 +183,7 @@ impl GGUFInferenceService {
         &self,
         model_path: PathBuf,
         tokenizer_path: Option<PathBuf>,
+        architecture: Option<String>,
     ) -> Result<()> {
         // 验证文件是否存在
         if !model_path.exists() {
@@ -205,6 +206,7 @@ impl GGUFInferenceService {
             temperature: 0.7,
             top_p: 0.9,
             top_k: 50,
+            architecture,
             ..Default::default()
         };
 
@@ -232,6 +234,7 @@ impl GGUFInferenceService {
         hf_repo: impl Into<String>,
         hf_filename: impl Into<String>,
         tokenizer_path: Option<PathBuf>,
+        architecture: Option<String>,
     ) -> Result<()> {
         let hf_repo_str = hf_repo.into();
         let hf_filename_str = hf_filename.into();
@@ -253,6 +256,7 @@ impl GGUFInferenceService {
             hf_repo_str.clone(),
             hf_filename_str.clone(),
             tokenizer_path,
+            architecture,
         )
         .with_context(|| {
             format!(
