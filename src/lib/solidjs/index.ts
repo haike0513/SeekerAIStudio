@@ -8,6 +8,17 @@
 export { useChat } from "./use-chat";
 export { useCompletion } from "./use-completion";
 export { useAssistant } from "./use-assistant";
+export { useStickToBottom } from "./use-stick-to-bottom";
+export type {
+	StickToBottomOptions,
+	StickToBottomInstance,
+	ScrollToBottom,
+	StopScroll,
+	SpringAnimation,
+	Animation,
+	GetTargetScrollTop,
+	ScrollToBottomOptions,
+} from "./use-stick-to-bottom";
 
 export type {
   Message,

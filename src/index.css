@@ -113,5 +113,16 @@ button {
   .text-popover-foreground {
     color: hsl(var(--popover-foreground));
   }
+  .animate-shimmer {
+    animation: shimmer linear infinite;
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: 100% center;
+    }
+    100% {
+      background-position: 0% center;
+    }
+  }
 }
 
