@@ -1,10 +1,8 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
-import { Textarea } from "@/components/ui/textarea";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { useI18n } from "@/lib/i18n";
 import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
-import { cn } from "@/lib/utils";
-import type { UIMessage, FileUIPart } from "ai";
+import type { FileUIPart } from "ai";
 
 // AI Elements 组件
 import {
@@ -17,15 +15,23 @@ import {
 import {
   Message,
   MessageContent,
-  MessageAttachments,
-  MessageAttachment,
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputProvider,
   usePromptInputController,
-  Input,
+  PromptInputAttachments,
+  PromptInputAttachment,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
+  PromptInputSpeechButton,
+  PromptInputButton,
   PromptInputTextarea,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
@@ -39,17 +45,19 @@ import {
   ModelSelectorGroup,
   ModelSelectorItem,
   ModelSelectorName,
+  ModelSelectorLogo,
+  ModelSelectorLogoGroup,
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Sparkles } from "lucide-solid";
+import { MessageSquare, Check, Globe } from "lucide-solid";
 
 // 模型列表（示例数据，可以从配置或 API 获取）
 const MODELS = [
-  { id: "qwen/qwen3-vl-8b", name: "Qwen3-VL 8B", provider: "qwen" },
-  { id: "gpt-4", name: "GPT-4", provider: "openai" },
-  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "openai" },
-  { id: "claude-3-opus", name: "Claude 3 Opus", provider: "anthropic" },
-  { id: "claude-3-sonnet", name: "Claude 3 Sonnet", provider: "anthropic" },
+  { id: "qwen/qwen3-vl-8b", name: "Qwen3-VL 8B", provider: "qwen", chef: "Qwen", chefSlug: "qwen", providers: ["qwen"] },
+  { id: "gpt-4", name: "GPT-4", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
+  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
+  { id: "claude-3-opus", name: "Claude 3 Opus", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
+  { id: "claude-3-sonnet", name: "Claude 3 Sonnet", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
 ];
 
 export default function AIChatPage() {
@@ -71,159 +79,220 @@ export default function AIChatPage() {
     transport: transport(),
   });
 
-  const [input, setInput] = createSignal("");
-
-  const handleSubmit = async (e: Event) => {
-    e.preventDefault();
-    const inputValue = input().trim();
-    if (!inputValue) return;
-
-    try {
-      await sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: inputValue }] as any,
-      });
-      setInput("");
-    } catch (err) {
-      console.error("发送消息失败:", err);
-    }
-  };
-
   const isLoading = () => status() === "streaming" || status() === "submitted";
 
   const currentModel = () => MODELS.find((m) => m.id === selectedModel()) || MODELS[0];
 
   return (
     <ConversationProvider>
-      <div class="flex flex-col h-full max-h-[calc(100vh-8rem)]">
-        {/* Header with Model Selector */}
-        <div class="mb-4 flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold">{t("app.chat.title")}</h1>
-            <p class="text-muted-foreground">{t("app.chat.description")}</p>
+      <PromptInputProvider>
+        <div class="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+          {/* Messages Area with Conversation */}
+          <Conversation class="flex-1 min-h-0 mb-4">
+            <ConversationContent>
+              <Show
+                when={messages().length > 0}
+                fallback={
+                  <ConversationEmptyState
+                    title={t("app.chat.empty")}
+                    description="开始对话..."
+                    icon={<MessageSquare size={48} class="text-muted-foreground" />}
+                  />
+                }
+              >
+                <For each={messages()}>
+                  {(message) => (
+                    <Message from={message.role}>
+                      <MessageContent>
+                        <For each={message.parts}>
+                          {(part, i) => {
+                            if (part.type === "text") {
+                              return (
+                                <MessageResponse>
+                                  {part.text}
+                                </MessageResponse>
+                              );
+                            }
+                            return null;
+                          }}
+                        </For>
+                      </MessageContent>
+                    </Message>
+                  )}
+                </For>
+                <Show when={isLoading()}>
+                  <Message from="assistant">
+                    <MessageContent>
+                      <div class="flex items-center gap-2">
+                        <div class="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        <span class="text-muted-foreground text-sm">
+                          {t("app.chat.thinking")}
+                        </span>
+                      </div>
+                    </MessageContent>
+                  </Message>
+                </Show>
+              </Show>
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+
+          {/* Error Message */}
+          <Show when={error()}>
+            <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
+              <p class="text-sm text-destructive flex-1">{error()?.message}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearError()}
+              >
+                {t("app.chat.dismiss")}
+              </Button>
+            </div>
+          </Show>
+
+          {/* Input Area */}
+          <div class="border-t pt-4">
+            <PromptInputWrapper
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              isModelSelectorOpen={isModelSelectorOpen}
+              setIsModelSelectorOpen={setIsModelSelectorOpen}
+              status={status}
+              sendMessage={sendMessage}
+            />
           </div>
-          
+        </div>
+      </PromptInputProvider>
+    </ConversationProvider>
+  );
+}
+
+// 内部组件，用于访问 PromptInputController
+function PromptInputWrapper(props: {
+  selectedModel: () => string;
+  setSelectedModel: (id: string) => void;
+  isModelSelectorOpen: () => boolean;
+  setIsModelSelectorOpen: (open: boolean) => void;
+  status: () => "streaming" | "submitted" | "ready" | "error";
+  sendMessage: (message: { role: "user"; parts: any[] }) => Promise<void>;
+}) {
+  const controller = usePromptInputController();
+  const currentModel = () => MODELS.find((m) => m.id === props.selectedModel()) || MODELS[0];
+
+  const handleSubmit = async (e: Event) => {
+    e.preventDefault();
+    const text = controller.textInput.value().trim();
+    const files = controller.attachments.files();
+    
+    const hasText = Boolean(text);
+    const hasAttachments = Boolean(files.length);
+
+    if (!(hasText || hasAttachments)) {
+      return;
+    }
+
+    try {
+      const parts: any[] = [];
+      if (hasText) {
+        parts.push({ type: "text", text });
+      }
+      if (hasAttachments) {
+        parts.push(...files.map(f => ({ type: "file", ...f })));
+      }
+      
+      await props.sendMessage({
+        role: "user",
+        parts,
+      });
+      
+      controller.textInput.clear();
+      controller.attachments.clear();
+    } catch (err) {
+      console.error("发送消息失败:", err);
+    }
+  };
+
+  return (
+    <PromptInput
+      status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"}
+      onSubmit={handleSubmit}
+    >
+      <PromptInputAttachments>
+        {(attachment) => <PromptInputAttachment data={attachment} />}
+      </PromptInputAttachments>
+      <PromptInputBody>
+        <PromptInputTextarea placeholder="输入消息..." />
+      </PromptInputBody>
+      <PromptInputFooter>
+        <PromptInputTools>
+          <PromptInputActionMenu>
+            <PromptInputActionMenuTrigger />
+            <PromptInputActionMenuContent>
+              <PromptInputActionAddAttachments />
+            </PromptInputActionMenuContent>
+          </PromptInputActionMenu>
+          <PromptInputSpeechButton />
+          <PromptInputButton>
+            <Globe size={16} />
+            <span>搜索</span>
+          </PromptInputButton>
           <ModelSelector
-            open={isModelSelectorOpen()}
-            onOpenChange={setIsModelSelectorOpen}
+            open={props.isModelSelectorOpen()}
+            onOpenChange={props.setIsModelSelectorOpen}
           >
             <ModelSelectorTrigger asChild>
-              <Button variant="outline" class="gap-2">
-                <Sparkles size={16} />
-                <span>{currentModel().name}</span>
-              </Button>
+              <PromptInputButton>
+                {currentModel().chefSlug && (
+                  <ModelSelectorLogo provider={currentModel().chefSlug} />
+                )}
+                {currentModel().name && (
+                  <ModelSelectorName>{currentModel().name}</ModelSelectorName>
+                )}
+              </PromptInputButton>
             </ModelSelectorTrigger>
-            <ModelSelectorContent title="选择模型">
+            <ModelSelectorContent>
               <ModelSelectorInput placeholder="搜索模型..." />
               <ModelSelectorList>
                 <ModelSelectorEmpty>未找到模型</ModelSelectorEmpty>
-                <ModelSelectorGroup>
-                  <For each={MODELS}>
-                    {(model) => (
-                      <ModelSelectorItem
-                        value={model.id}
-                        onSelect={() => {
-                          setSelectedModel(model.id);
-                          setIsModelSelectorOpen(false);
-                        }}
-                      >
-                        <ModelSelectorName>{model.name}</ModelSelectorName>
-                      </ModelSelectorItem>
-                    )}
-                  </For>
-                </ModelSelectorGroup>
+                <For each={["OpenAI", "Anthropic", "Qwen"]}>
+                  {(chef) => (
+                    <ModelSelectorGroup heading={chef}>
+                      <For each={MODELS.filter((m) => m.chef === chef)}>
+                        {(model) => (
+                          <ModelSelectorItem
+                            value={model.id}
+                            onSelect={() => {
+                              props.setSelectedModel(model.id);
+                              props.setIsModelSelectorOpen(false);
+                            }}
+                          >
+                            <ModelSelectorLogo provider={model.chefSlug} />
+                            <ModelSelectorName>{model.name}</ModelSelectorName>
+                            <ModelSelectorLogoGroup>
+                              <For each={model.providers}>
+                                {(provider) => (
+                                  <ModelSelectorLogo provider={provider} />
+                                )}
+                              </For>
+                            </ModelSelectorLogoGroup>
+                            {props.selectedModel() === model.id ? (
+                              <Check class="ml-auto size-4" />
+                            ) : (
+                              <div class="ml-auto size-4" />
+                            )}
+                          </ModelSelectorItem>
+                        )}
+                      </For>
+                    </ModelSelectorGroup>
+                  )}
+                </For>
               </ModelSelectorList>
             </ModelSelectorContent>
           </ModelSelector>
-        </div>
-
-        {/* Messages Area with Conversation */}
-        <Conversation class="flex-1 min-h-0 mb-4">
-          <ConversationContent>
-            <Show
-              when={messages().length > 0}
-              fallback={
-                <ConversationEmptyState
-                  title={t("app.chat.empty")}
-                  description="开始对话..."
-                  icon={<MessageSquare size={48} class="text-muted-foreground" />}
-                />
-              }
-            >
-              <For each={messages()}>
-                {(message) => (
-                  <Message from={message.role}>
-                    <MessageContent>
-                      <For each={message.parts}>
-                        {(part, i) => {
-                          if (part.type === "text") {
-                            return (
-                              <MessageResponse>
-                                {part.text}
-                              </MessageResponse>
-                            );
-                          }
-                          return null;
-                        }}
-                      </For>
-                    </MessageContent>
-                  </Message>
-                )}
-              </For>
-              <Show when={isLoading()}>
-                <Message from="assistant">
-                  <MessageContent>
-                    <div class="flex items-center gap-2">
-                      <div class="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      <span class="text-muted-foreground text-sm">
-                        {t("app.chat.thinking")}
-                      </span>
-                    </div>
-                  </MessageContent>
-                </Message>
-              </Show>
-            </Show>
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-
-        {/* Error Message */}
-        <Show when={error()}>
-          <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
-            <p class="text-sm text-destructive flex-1">{error()?.message}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => clearError()}
-            >
-              {t("app.chat.dismiss")}
-            </Button>
-          </div>
-        </Show>
-
-        {/* Input Area */}
-        <div class="border-t pt-4">
-          <Input
-            onSubmit={handleSubmit}
-            class="w-full max-w-2xl mx-auto relative"
-          >
-            <PromptInputTextarea
-              value={input()}
-              placeholder="Say something..."
-              onChange={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                setInput(target.value);
-              }}
-              class="pr-12"
-            />
-            <PromptInputSubmit
-              status={status() === "streaming" ? "streaming" : "ready"}
-              disabled={!input().trim()}
-              class="absolute bottom-1 right-1"
-            />
-          </Input>
-        </div>
-      </div>
-    </ConversationProvider>
+        </PromptInputTools>
+        <PromptInputSubmit status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"} />
+      </PromptInputFooter>
+    </PromptInput>
   );
 }

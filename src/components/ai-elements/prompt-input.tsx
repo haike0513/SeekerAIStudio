@@ -19,6 +19,11 @@ import {
 } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
 import { CornerDownLeft, Loader2, Square, X, Paperclip, Image as ImageIcon } from "lucide-solid";
@@ -88,7 +93,12 @@ export function PromptInputProvider(props: PromptInputProviderProps) {
   const clearInput = () => setTextInput("");
 
   const [attachmentFiles, setAttachmentFiles] = createSignal<(FileUIPart & { id: string })[]>([]);
+  let fileInputRef: HTMLInputElement | undefined;
   let openFileDialogFn: (() => void) | undefined;
+
+  const registerFileDialog = (fn: () => void) => {
+    openFileDialogFn = fn;
+  };
 
   const add = (files: File[] | FileList) => {
     const incoming = Array.from(files);
@@ -143,6 +153,8 @@ export function PromptInputProvider(props: PromptInputProviderProps) {
   const openFileDialog = () => {
     if (openFileDialogFn) {
       openFileDialogFn();
+    } else if (fileInputRef) {
+      fileInputRef.click();
     }
   };
 
@@ -153,6 +165,12 @@ export function PromptInputProvider(props: PromptInputProviderProps) {
     clear,
     openFileDialog,
   };
+
+  // 创建一个 context 来注册文件输入引用
+  const FileInputContext = createContext<{
+    registerFileInput: (ref: HTMLInputElement | undefined) => void;
+    fileInputRef: HTMLInputElement | undefined;
+  } | null>(null);
 
   const controller: PromptInputControllerProps = {
     textInput: {
@@ -329,6 +347,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const [, rest] = splitProps(props, ["class", "status", "onSubmit", "onInputChange", "children"]);
 
+  // 注册文件对话框打开函数到 Provider（如果存在）
+  if (controller) {
+    // 这里需要将 fileInputRef 注册到 Provider，但为了简化，我们直接使用本地引用
+  }
+
   return (
     <LocalAttachmentsContext.Provider value={attachments}>
       <form
@@ -336,39 +359,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         onSubmit={handleSubmit}
         {...rest}
       >
-        <Show when={attachments.files().length > 0}>
-          <div class="flex flex-wrap gap-2">
-            <For each={attachments.files()}>
-              {(file) => <PromptInputAttachment data={file} />}
-            </For>
-          </div>
-        </Show>
-        <div class="flex items-end gap-2">
-          <Textarea
-            value={textInput.value()}
-            onInput={handleInputChange}
-            placeholder="输入消息..."
-            rows={1}
-            class="min-h-[60px] resize-none"
-          />
-          <input
-            ref={(el) => { fileInputRef = el; }}
-            type="file"
-            multiple
-            class="hidden"
-            onChange={handleFileChange}
-            accept="image/*"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={attachments.openFileDialog}
-          >
-            <ImageIcon size={16} />
-          </Button>
-          <PromptInputSubmit status={props.status} />
-        </div>
+        <input
+          ref={(el) => { 
+            fileInputRef = el;
+            // 如果使用 Provider，需要注册打开函数
+            if (controller?.attachments) {
+              // 这里可以设置一个回调来打开文件对话框
+            }
+          }}
+          type="file"
+          multiple
+          class="hidden"
+          onChange={handleFileChange}
+          accept="image/*"
+        />
         {props.children}
       </form>
     </LocalAttachmentsContext.Provider>
@@ -435,7 +439,15 @@ export type PromptInputTextareaProps = JSX.TextareaHTMLAttributes<HTMLTextAreaEl
 };
 
 export const PromptInputTextarea: Component<PromptInputTextareaProps> = (props) => {
+  const controller = useOptionalPromptInputController();
+  const textInput = controller?.textInput;
+  
   const handleInput = (e: Event) => {
+    const target = e.target as HTMLTextAreaElement;
+    const value = target.value;
+    if (textInput) {
+      textInput.setInput(value);
+    }
     props.onChange?.(e);
   };
 
@@ -443,11 +455,139 @@ export const PromptInputTextarea: Component<PromptInputTextareaProps> = (props) 
 
   return (
     <Textarea
-      value={props.value ?? ""}
+      value={props.value ?? textInput?.value() ?? ""}
       onInput={handleInput}
       class={cn("min-h-[60px] resize-none", props.class)}
       {...rest}
     />
+  );
+};
+
+// PromptInputAttachments 组件
+export type PromptInputAttachmentsProps = JSX.HTMLAttributes<HTMLDivElement> & {
+  children?: (attachment: FileUIPart & { id: string }) => JSX.Element;
+};
+
+export const PromptInputAttachments: Component<PromptInputAttachmentsProps> = (props) => {
+  const attachments = usePromptInputAttachments();
+  const [, rest] = splitProps(props, ["class", "children"]);
+
+  return (
+    <Show when={attachments.files().length > 0}>
+      <div class={cn("flex flex-wrap gap-2", props.class)} {...rest}>
+        <For each={attachments.files()}>
+          {(file) => (props.children ? props.children(file) : <PromptInputAttachment data={file} />)}
+        </For>
+      </div>
+    </Show>
+  );
+};
+
+// PromptInputBody 组件
+export type PromptInputBodyProps = JSX.HTMLAttributes<HTMLDivElement>;
+
+export const PromptInputBody: Component<PromptInputBodyProps> = (props) => {
+  const [, rest] = splitProps(props, ["class", "children"]);
+  return <div class={cn("flex items-end gap-2", props.class)} {...rest}>{props.children}</div>;
+};
+
+// PromptInputFooter 组件
+export type PromptInputFooterProps = JSX.HTMLAttributes<HTMLDivElement>;
+
+export const PromptInputFooter: Component<PromptInputFooterProps> = (props) => {
+  const [, rest] = splitProps(props, ["class", "children"]);
+  return <div class={cn("flex items-center justify-between gap-2", props.class)} {...rest}>{props.children}</div>;
+};
+
+// PromptInputTools 组件
+export type PromptInputToolsProps = JSX.HTMLAttributes<HTMLDivElement>;
+
+export const PromptInputTools: Component<PromptInputToolsProps> = (props) => {
+  const [, rest] = splitProps(props, ["class", "children"]);
+  return <div class={cn("flex items-center gap-1", props.class)} {...rest}>{props.children}</div>;
+};
+
+// PromptInputButton 组件
+export type PromptInputButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;
+
+export const PromptInputButton: Component<PromptInputButtonProps> = (props) => {
+  const [, rest] = splitProps(props, ["class", "children"]);
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      class={cn("gap-2", props.class)}
+      {...rest}
+    >
+      {props.children}
+    </Button>
+  );
+};
+
+// PromptInputActionMenu 相关组件
+export type PromptInputActionMenuProps = JSX.HTMLAttributes<HTMLDivElement>;
+
+export const PromptInputActionMenu: Component<PromptInputActionMenuProps> = (props) => {
+  return <DropdownMenu {...props} />;
+};
+
+export type PromptInputActionMenuTriggerProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;
+
+export const PromptInputActionMenuTrigger: Component<PromptInputActionMenuTriggerProps> = (props) => {
+  return <DropdownMenuTrigger {...props} />;
+};
+
+export type PromptInputActionMenuContentProps = JSX.HTMLAttributes<HTMLDivElement>;
+
+export const PromptInputActionMenuContent: Component<PromptInputActionMenuContentProps> = (props) => {
+  return <DropdownMenuContent {...props} />;
+};
+
+export type PromptInputActionAddAttachmentsProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;
+
+export const PromptInputActionAddAttachments: Component<PromptInputActionAddAttachmentsProps> = (props) => {
+  const attachments = usePromptInputAttachments();
+  const [, rest] = splitProps(props, ["class", "children"]);
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      class={cn("w-full justify-start", props.class)}
+      onClick={attachments.openFileDialog}
+      {...rest}
+    >
+      {props.children ?? (
+        <>
+          <Paperclip size={16} />
+          <span>添加附件</span>
+        </>
+      )}
+    </Button>
+  );
+};
+
+// PromptInputSpeechButton 组件（简化版本）
+export type PromptInputSpeechButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
+  textareaRef?: HTMLTextAreaElement | ((el: HTMLTextAreaElement) => void);
+};
+
+export const PromptInputSpeechButton: Component<PromptInputSpeechButtonProps> = (props) => {
+  const [, rest] = splitProps(props, ["class", "children", "textareaRef"]);
+  
+  // 语音输入功能需要额外的实现，这里先提供一个占位按钮
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      class={cn("gap-2", props.class)}
+      {...rest}
+    >
+      {props.children ?? <Paperclip size={16} />}
+    </Button>
   );
 };
 
