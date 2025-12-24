@@ -1,4 +1,4 @@
-import { createSignal, For, Show, onMount } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,8 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import { Send, Loader2, AlertCircle } from "lucide-solid";
 import { cn } from "@/lib/utils";
-import { generateText } from "ai";
-import { lmstudio } from "@/lib/ai/provider/lmstudio";
+import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
 
 export default function AIChatPage() {
   const { t } = useI18n();
@@ -22,7 +21,7 @@ export default function AIChatPage() {
     stop,
     clearError,
   } = useChat({
-    api: "/api/chat",
+    transport: new LMStudioChatTransport("qwen/qwen3-vl-8b"),
   });
 
   const handleSubmit = async (e: Event) => {
@@ -30,24 +29,14 @@ export default function AIChatPage() {
     const text = input().trim();
     if (!text || isSubmitting()) return;
 
-
-
     setIsSubmitting(true);
     setInput("");
 
     try {
-    //   await sendMessage({
-    //     role: "user",
-    //     parts: [{ type: "text", text }],
-    //   });
-
-      const result = await generateText({
-        model: lmstudio('qwen/qwen3-vl-8b') as any,
-        prompt: text,
-        maxRetries: 1, // immediately error if the server is not running
+      await sendMessage({
+        role: "user",
+        parts: [{ type: "text", text }],
       });
-
-    console.log(result);
     } catch (err) {
       console.error("发送消息失败:", err);
     } finally {
