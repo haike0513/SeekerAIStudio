@@ -25,9 +25,13 @@ export class LMStudioChatTransport<UI_MESSAGE extends UIMessage>
     // 将 UIMessage 转换为 streamText 需要的格式
     const modelMessages = options.messages.map((msg) => {
       const textContent =
-        msg.parts
-          ?.filter((part) => part && part.type === "text")
-          .map((part) => (part.type === "text" ? part.text : ""))
+        (msg.parts ?? [])
+          .filter((part) => part && part.type === "text")
+          .map((part) =>
+            part && part.type === "text" && typeof part.text === "string"
+              ? part.text
+              : "",
+          )
           .join("") || "";
 
       return {
@@ -47,9 +51,72 @@ export class LMStudioChatTransport<UI_MESSAGE extends UIMessage>
     // 将 streamText 的结果转换为 UIMessageChunk 流
     const uiMessageStreamResponse = await result.toUIMessageStreamResponse();
 
-    // 返回 Response 的 body 流，它已经是 UIMessageChunk 流
-    // toUIMessageStreamResponse() 返回的 Response body 实际上是 UIMessageChunk 流
-    return uiMessageStreamResponse.body as unknown as ReadableStream<UIMessageChunk>;
+    if (!uiMessageStreamResponse.body) {
+      throw new Error("Response body is null");
+    }
+
+    // 解析 SSE 格式的流并转换为 UIMessageChunk
+    const reader = uiMessageStreamResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    return new ReadableStream<UIMessageChunk>({
+      async pull(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              // 处理剩余的 buffer
+              if (buffer.trim()) {
+                const lines = buffer.split("\n\n");
+                for (const line of lines) {
+                  if (line && line.trim() && line.startsWith("data: ")) {
+                    const data = line.slice(6).trim();
+                    if (data && data !== "[DONE]") {
+                      try {
+                        const chunk = JSON.parse(data) as UIMessageChunk;
+                        controller.enqueue(chunk);
+                      } catch (e) {
+                        // 忽略解析错误
+                      }
+                    }
+                  }
+                }
+              }
+              controller.close();
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (line && line.trim()) {
+                // 处理 SSE 格式: data: {...}
+                if (line.startsWith("data: ")) {
+                  const data = line.slice(6).trim();
+                  if (data && data !== "[DONE]") {
+                    try {
+                      const chunk = JSON.parse(data) as UIMessageChunk;
+                      controller.enqueue(chunk);
+                    } catch (e) {
+                      // 忽略解析错误，继续处理下一行
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      cancel() {
+        reader.cancel();
+      },
+    });
   }
 
   async reconnectToStream(_options: {
