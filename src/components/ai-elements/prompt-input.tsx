@@ -88,8 +88,7 @@ export function PromptInputProvider(props: PromptInputProviderProps) {
   const clearInput = () => setTextInput("");
 
   const [attachmentFiles, setAttachmentFiles] = createSignal<(FileUIPart & { id: string })[]>([]);
-  let fileInputRef: HTMLInputElement | null = null;
-  let openFileDialogFn: (() => void) | null = null;
+  let openFileDialogFn: (() => void) | undefined;
 
   const add = (files: File[] | FileList) => {
     const incoming = Array.from(files);
@@ -142,7 +141,9 @@ export function PromptInputProvider(props: PromptInputProviderProps) {
   });
 
   const openFileDialog = () => {
-    openFileDialogFn?.();
+    if (openFileDialogFn) {
+      openFileDialogFn();
+    }
   };
 
   const attachments: AttachmentsContext = {
@@ -199,7 +200,6 @@ export const PromptInputAttachment: Component<PromptInputAttachmentProps> = (pro
   const mediaType =
     props.data.mediaType?.startsWith("image/") && props.data.url ? "image" : "file";
   const isImage = mediaType === "image";
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
 
   const [, rest] = splitProps(props, ["class", "data"]);
 
@@ -253,7 +253,7 @@ export type PromptInputProps = JSX.HTMLAttributes<HTMLFormElement> & {
 export const PromptInput: Component<PromptInputProps> = (props) => {
   const [localInput, setLocalInput] = createSignal("");
   const [localAttachments, setLocalAttachments] = createSignal<(FileUIPart & { id: string })[]>([]);
-  let fileInputRef: HTMLInputElement | null = null;
+  let fileInputRef: HTMLInputElement | undefined;
 
   const controller = useOptionalPromptInputController();
   const textInput = controller?.textInput ?? {
@@ -298,7 +298,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       });
     },
     openFileDialog: () => {
-      fileInputRef?.click();
+      if (fileInputRef) {
+        fileInputRef.click();
+      }
     },
   };
 
@@ -350,7 +352,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             class="min-h-[60px] resize-none"
           />
           <input
-            ref={fileInputRef}
+            ref={(el) => { fileInputRef = el; }}
             type="file"
             multiple
             class="hidden"
@@ -399,6 +401,53 @@ export const PromptInputSubmit: Component<PromptInputSubmitProps> = (props) => {
     >
       {props.children ?? Icon}
     </Button>
+  );
+};
+
+// Input 组件 - 作为表单容器
+export type InputProps = JSX.HTMLAttributes<HTMLFormElement> & {
+  onSubmit?: (e: Event) => void;
+};
+
+export const Input: Component<InputProps> = (props) => {
+  const handleSubmit = (e: Event) => {
+    e.preventDefault();
+    props.onSubmit?.(e);
+  };
+
+  const [, rest] = splitProps(props, ["class", "onSubmit", "children"]);
+
+  return (
+    <form
+      class={cn("relative", props.class)}
+      onSubmit={handleSubmit}
+      {...rest}
+    >
+      {props.children}
+    </form>
+  );
+};
+
+// PromptInputTextarea 组件
+export type PromptInputTextareaProps = JSX.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  value?: string;
+  onChange?: (e: Event) => void;
+};
+
+export const PromptInputTextarea: Component<PromptInputTextareaProps> = (props) => {
+  const handleInput = (e: Event) => {
+    props.onChange?.(e);
+  };
+
+  const [, rest] = splitProps(props, ["class", "value", "onChange", "onInput"]);
+
+  return (
+    <Textarea
+      value={props.value ?? ""}
+      onInput={handleInput}
+      class={cn("min-h-[60px] resize-none", props.class)}
+      {...rest}
+    />
   );
 };
 

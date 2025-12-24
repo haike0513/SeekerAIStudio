@@ -1,4 +1,5 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
+import { Textarea } from "@/components/ui/textarea";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { useI18n } from "@/lib/i18n";
 import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
@@ -17,11 +18,15 @@ import {
   MessageContent,
   MessageAttachments,
   MessageAttachment,
+  MessageResponse,
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputProvider,
   usePromptInputController,
+  Input,
+  PromptInputTextarea,
+  PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import {
   ModelSelector,
@@ -65,60 +70,22 @@ export default function AIChatPage() {
     transport: transport(),
   });
 
-  // 创建一个内部组件来处理提交逻辑
-  const ChatInput = () => {
-    const controller = usePromptInputController();
-    
-    const handleSubmit = async (e: Event) => {
-      e.preventDefault();
-      const form = e.target as HTMLFormElement;
-      const textarea = form.querySelector("textarea");
-      const input = textarea?.value.trim();
-      
-      // 获取附件
-      const attachments = controller.attachments.files();
-      
-      if (!input && attachments.length === 0) return;
+  const [input, setInput] = createSignal("");
 
-      // 构建消息 parts
-      const parts: Array<{ type: "text" | "file"; text?: string; data?: FileUIPart }> = [];
-      
-      if (input) {
-        parts.push({ type: "text", text: input });
-      }
-      
-      // 将附件转换为消息 parts
-      for (const file of attachments) {
-        parts.push({
-          type: "file",
-          data: {
-            type: "file",
-            url: file.url,
-            mediaType: file.mediaType,
-            filename: file.filename,
-          },
-        });
-      }
+  const handleSubmit = async (e: Event) => {
+    e.preventDefault();
+    const inputValue = input().trim();
+    if (!inputValue) return;
 
-      try {
-        await sendMessage({
-          role: "user",
-          parts: parts as any,
-        });
-        
-        // 清空附件
-        controller.attachments.clear();
-      } catch (err) {
-        console.error("发送消息失败:", err);
-      }
-    };
-
-    return (
-      <PromptInput
-        status={status()}
-        onSubmit={handleSubmit}
-      />
-    );
+    try {
+      await sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: inputValue }] as any,
+      });
+      setInput("");
+    } catch (err) {
+      console.error("发送消息失败:", err);
+    }
   };
 
   const isLoading = () => status() === "streaming" || status() === "submitted";
@@ -182,42 +149,24 @@ export default function AIChatPage() {
             }
           >
             <For each={messages()}>
-              {(message, index) => {
-                const isUser = message.role === "user";
-                const textParts = message.parts?.filter(
-                  (part) => part && part.type === "text"
-                ) || [];
-                const fileParts = message.parts?.filter(
-                  (part) => part && part.type === "file"
-                ) || [];
-                const textContent = textParts
-                  .map((part) => (part.type === "text" ? part.text : ""))
-                  .join("");
-
-                return (
-                  <Message from={message.role}>
-                    <MessageContent>
-                      <Show when={textContent}>
-                        <p class="whitespace-pre-wrap break-words">{textContent}</p>
-                      </Show>
-                      <Show when={fileParts.length > 0}>
-                        <MessageAttachments>
-                          <For each={fileParts}>
-                            {(part) => {
-                              if (part.type === "file" && part.data) {
-                                return (
-                                  <MessageAttachment data={part.data} />
-                                );
-                              }
-                              return null;
-                            }}
-                          </For>
-                        </MessageAttachments>
-                      </Show>
-                    </MessageContent>
-                  </Message>
-                );
-              }}
+              {(message) => (
+                <Message from={message.role}>
+                  <MessageContent>
+                    <For each={message.parts}>
+                      {(part, i) => {
+                        if (part.type === "text") {
+                          return (
+                            <MessageResponse>
+                              {part.text}
+                            </MessageResponse>
+                          );
+                        }
+                        return null;
+                      }}
+                    </For>
+                  </MessageContent>
+                </Message>
+              )}
             </For>
             <Show when={isLoading()}>
               <Message from="assistant">
@@ -250,23 +199,27 @@ export default function AIChatPage() {
         </div>
       </Show>
 
-      {/* Input Area with PromptInput */}
+      {/* Input Area */}
       <div class="border-t pt-4">
-        <PromptInputProvider>
-          <ChatInput />
-          <Show when={isLoading()}>
-            <div class="mt-2 flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => stop()}
-              >
-                {t("app.chat.stop")}
-              </Button>
-            </div>
-          </Show>
-        </PromptInputProvider>
+        <Input
+          onSubmit={handleSubmit}
+          class="w-full max-w-2xl mx-auto relative"
+        >
+          <PromptInputTextarea
+            value={input()}
+            placeholder="Say something..."
+            onChange={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              setInput(target.value);
+            }}
+            class="pr-12"
+          />
+          <PromptInputSubmit
+            status={status() === "streaming" ? "streaming" : "ready"}
+            disabled={!input().trim()}
+            class="absolute bottom-1 right-1"
+          />
+        </Input>
       </div>
     </div>
   );

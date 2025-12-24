@@ -4,7 +4,7 @@
  * 集成了 use-stick-to-bottom 的自动滚动功能
  */
 
-import { type Component, type JSX, createContext, useContext, Show, splitProps, createMemo } from "solid-js";
+import { type Component, type JSX, createContext, useContext, Show, splitProps } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowDown } from "lucide-solid";
@@ -45,15 +45,16 @@ export const Conversation: Component<ConversationProps> = (props) => {
     stickToBottom.scrollToBottom();
   };
 
-  // 使用 createMemo 稳定 context value（参考 chain-of-thought.tsx 的实现）
-  const contextValue = createMemo(() => ({
+  // 在 SolidJS 中，Context.Provider 的 value 应该直接传递对象
+  // 对象中的函数引用是稳定的，不需要 createMemo
+  const contextValue: ConversationContextValue = {
     isAtBottom: stickToBottom.isAtBottom,
     scrollToBottom,
     contentRef: stickToBottom.contentRef,
-  }));
+  };
 
   return (
-    <ConversationContext.Provider value={contextValue()}>
+    <ConversationContext.Provider value={contextValue}>
       <div
         ref={stickToBottom.scrollRef}
         class={cn("relative flex-1", props.class)}
