@@ -3,6 +3,7 @@ import InferencePanel from "@/components/InferencePanel";
 import SettingsPage from "@/components/SettingsPage";
 import WorkflowPage from "@/components/WorkflowPage";
 import ModelManagementPage from "@/components/ModelManagementPage";
+import AIChatPage from "@/components/AIChatPage";
 
 // 路由配置接口
 export interface RouteConfig {
@@ -32,6 +33,11 @@ export const routes: RouteConfig[] = [
     path: "/models",
     component: ModelManagementPage,
     name: "models",
+  },
+  {
+    path: "/chat",
+    component: AIChatPage,
+    name: "chat",
   },
 ];
 

@@ -8,6 +8,7 @@ import {
   Database, 
   History,
   GitBranch,
+  MessageSquare,
   ChevronLeft, 
   ChevronRight,
   Menu,
@@ -39,6 +40,14 @@ export default function Sidebar(props: SidebarProps) {
       id: "inference",
       icon: Brain,
       label: t("app.sidebar.inference"),
+      onClick: () => {
+        setIsMobileOpen(false);
+      },
+    },
+    {
+      id: "chat",
+      icon: MessageSquare,
+      label: t("app.sidebar.chat"),
       onClick: () => {
         setIsMobileOpen(false);
       },
