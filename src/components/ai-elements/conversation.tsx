@@ -4,7 +4,7 @@
  * 集成了 use-stick-to-bottom 的自动滚动功能
  */
 
-import { type Component, type JSX, createContext, useContext, Show, splitProps } from "solid-js";
+import { type Component, type JSX, createContext, useContext, Show, splitProps, createMemo } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowDown } from "lucide-solid";
@@ -14,6 +14,7 @@ type ConversationContextValue = {
   isAtBottom: () => boolean;
   scrollToBottom: () => void;
   contentRef: (ref: HTMLElement | null) => void;
+  scrollRef: (ref: HTMLElement | null) => void;
 };
 
 // 在 SolidJS 中，Context 的默认值使用 null（与其他组件保持一致）
@@ -28,43 +29,97 @@ export const useConversationContext = () => {
   return context;
 };
 
-export type ConversationProps = JSX.HTMLAttributes<HTMLDivElement> & {
+export type ConversationProviderProps = {
   /**
    * use-stick-to-bottom 的配置选项
    */
   stickToBottomOptions?: StickToBottomOptions;
+  children: JSX.Element;
 };
 
+/**
+ * ConversationProvider 组件
+ * 提供 Conversation Context，可以在外层使用
+ * 管理滚动逻辑，但不渲染 UI 容器
+ */
+export const ConversationProvider: Component<ConversationProviderProps> = (props) => {
+  const stickToBottom = useStickToBottom(props.stickToBottomOptions);
+
+  // 在 SolidJS 中，Context.Provider 的 value 应该使用 createMemo 稳定引用
+  // 特别是当包含函数或访问器时
+  const contextValue = createMemo<ConversationContextValue>(() => ({
+    isAtBottom: stickToBottom.isAtBottom,
+    scrollToBottom: () => stickToBottom.scrollToBottom(),
+    contentRef: stickToBottom.contentRef,
+    scrollRef: stickToBottom.scrollRef,
+  }));
+
+  return (
+    <ConversationContext.Provider value={contextValue()}>
+      {props.children}
+    </ConversationContext.Provider>
+  );
+};
+
+export type ConversationProps = JSX.HTMLAttributes<HTMLDivElement> & {
+  /**
+   * use-stick-to-bottom 的配置选项
+   * 如果在外层使用了 ConversationProvider，则此选项会被忽略
+   */
+  stickToBottomOptions?: StickToBottomOptions;
+};
+
+/**
+ * Conversation 组件
+ * 包含滚动容器的对话列表组件
+ * 如果在外层使用了 ConversationProvider，则使用 context 中的 scrollRef
+ * 否则，创建自己的 Provider 和 scrollRef
+ */
 export const Conversation: Component<ConversationProps> = (props) => {
   const { stickToBottomOptions, ...restProps } = props;
   const [, rest] = splitProps(restProps, ["class", "children"]);
 
-  const stickToBottom = useStickToBottom(stickToBottomOptions);
+  // 检查是否已经有外层的 Provider
+  const existingContext = useContext(ConversationContext);
+  const hasProvider = existingContext !== null;
 
-  const scrollToBottom = () => {
-    stickToBottom.scrollToBottom();
-  };
+  // 如果没有外层 Provider，则创建自己的 Provider
+  if (!hasProvider) {
+    const stickToBottom = useStickToBottom(stickToBottomOptions);
 
-  // 在 SolidJS 中，Context.Provider 的 value 应该直接传递对象
-  // 对象中的函数引用是稳定的，不需要 createMemo
-  const contextValue: ConversationContextValue = {
-    isAtBottom: stickToBottom.isAtBottom,
-    scrollToBottom,
-    contentRef: stickToBottom.contentRef,
-  };
+    const contextValue = createMemo<ConversationContextValue>(() => ({
+      isAtBottom: stickToBottom.isAtBottom,
+      scrollToBottom: () => stickToBottom.scrollToBottom(),
+      contentRef: stickToBottom.contentRef,
+      scrollRef: stickToBottom.scrollRef,
+    }));
 
+    return (
+      <ConversationContext.Provider value={contextValue()}>
+        <div
+          ref={stickToBottom.scrollRef}
+          class={cn("relative flex-1", props.class)}
+          style={{ height: "100%", width: "100%" }}
+          role="log"
+          {...rest}
+        >
+          {props.children}
+        </div>
+      </ConversationContext.Provider>
+    );
+  }
+
+  // 如果有外层 Provider，使用 context 中的 scrollRef
   return (
-    <ConversationContext.Provider value={contextValue}>
-      <div
-        ref={stickToBottom.scrollRef}
-        class={cn("relative flex-1", props.class)}
-        style={{ height: "100%", width: "100%" }}
-        role="log"
-        {...rest}
-      >
-        {props.children}
-      </div>
-    </ConversationContext.Provider>
+    <div
+      ref={existingContext.scrollRef}
+      class={cn("relative flex-1", props.class)}
+      style={{ height: "100%", width: "100%" }}
+      role="log"
+      {...rest}
+    >
+      {props.children}
+    </div>
   );
 };
 

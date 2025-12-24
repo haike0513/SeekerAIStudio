@@ -9,6 +9,7 @@ import type { UIMessage, FileUIPart } from "ai";
 // AI Elements 组件
 import {
   Conversation,
+  ConversationProvider,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
@@ -93,134 +94,136 @@ export default function AIChatPage() {
   const currentModel = () => MODELS.find((m) => m.id === selectedModel()) || MODELS[0];
 
   return (
-    <div class="flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      {/* Header with Model Selector */}
-      <div class="mb-4 flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold">{t("app.chat.title")}</h1>
-          <p class="text-muted-foreground">{t("app.chat.description")}</p>
-        </div>
-        
-        <ModelSelector
-          open={isModelSelectorOpen()}
-          onOpenChange={setIsModelSelectorOpen}
-        >
-          <ModelSelectorTrigger asChild>
-            <Button variant="outline" class="gap-2">
-              <Sparkles size={16} />
-              <span>{currentModel().name}</span>
-            </Button>
-          </ModelSelectorTrigger>
-          <ModelSelectorContent title="选择模型">
-            <ModelSelectorInput placeholder="搜索模型..." />
-            <ModelSelectorList>
-              <ModelSelectorEmpty>未找到模型</ModelSelectorEmpty>
-              <ModelSelectorGroup>
-                <For each={MODELS}>
-                  {(model) => (
-                    <ModelSelectorItem
-                      value={model.id}
-                      onSelect={() => {
-                        setSelectedModel(model.id);
-                        setIsModelSelectorOpen(false);
-                      }}
-                    >
-                      <ModelSelectorName>{model.name}</ModelSelectorName>
-                    </ModelSelectorItem>
-                  )}
-                </For>
-              </ModelSelectorGroup>
-            </ModelSelectorList>
-          </ModelSelectorContent>
-        </ModelSelector>
-      </div>
-
-      {/* Messages Area with Conversation */}
-      <Conversation class="flex-1 min-h-0 mb-4">
-        <ConversationContent>
-          <Show
-            when={messages().length > 0}
-            fallback={
-              <ConversationEmptyState
-                title={t("app.chat.empty")}
-                description="开始对话..."
-                icon={<MessageSquare size={48} class="text-muted-foreground" />}
-              />
-            }
+    <ConversationProvider>
+      <div class="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+        {/* Header with Model Selector */}
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold">{t("app.chat.title")}</h1>
+            <p class="text-muted-foreground">{t("app.chat.description")}</p>
+          </div>
+          
+          <ModelSelector
+            open={isModelSelectorOpen()}
+            onOpenChange={setIsModelSelectorOpen}
           >
-            <For each={messages()}>
-              {(message) => (
-                <Message from={message.role}>
+            <ModelSelectorTrigger asChild>
+              <Button variant="outline" class="gap-2">
+                <Sparkles size={16} />
+                <span>{currentModel().name}</span>
+              </Button>
+            </ModelSelectorTrigger>
+            <ModelSelectorContent title="选择模型">
+              <ModelSelectorInput placeholder="搜索模型..." />
+              <ModelSelectorList>
+                <ModelSelectorEmpty>未找到模型</ModelSelectorEmpty>
+                <ModelSelectorGroup>
+                  <For each={MODELS}>
+                    {(model) => (
+                      <ModelSelectorItem
+                        value={model.id}
+                        onSelect={() => {
+                          setSelectedModel(model.id);
+                          setIsModelSelectorOpen(false);
+                        }}
+                      >
+                        <ModelSelectorName>{model.name}</ModelSelectorName>
+                      </ModelSelectorItem>
+                    )}
+                  </For>
+                </ModelSelectorGroup>
+              </ModelSelectorList>
+            </ModelSelectorContent>
+          </ModelSelector>
+        </div>
+
+        {/* Messages Area with Conversation */}
+        <Conversation class="flex-1 min-h-0 mb-4">
+          <ConversationContent>
+            <Show
+              when={messages().length > 0}
+              fallback={
+                <ConversationEmptyState
+                  title={t("app.chat.empty")}
+                  description="开始对话..."
+                  icon={<MessageSquare size={48} class="text-muted-foreground" />}
+                />
+              }
+            >
+              <For each={messages()}>
+                {(message) => (
+                  <Message from={message.role}>
+                    <MessageContent>
+                      <For each={message.parts}>
+                        {(part, i) => {
+                          if (part.type === "text") {
+                            return (
+                              <MessageResponse>
+                                {part.text}
+                              </MessageResponse>
+                            );
+                          }
+                          return null;
+                        }}
+                      </For>
+                    </MessageContent>
+                  </Message>
+                )}
+              </For>
+              <Show when={isLoading()}>
+                <Message from="assistant">
                   <MessageContent>
-                    <For each={message.parts}>
-                      {(part, i) => {
-                        if (part.type === "text") {
-                          return (
-                            <MessageResponse>
-                              {part.text}
-                            </MessageResponse>
-                          );
-                        }
-                        return null;
-                      }}
-                    </For>
+                    <div class="flex items-center gap-2">
+                      <div class="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      <span class="text-muted-foreground text-sm">
+                        {t("app.chat.thinking")}
+                      </span>
+                    </div>
                   </MessageContent>
                 </Message>
-              )}
-            </For>
-            <Show when={isLoading()}>
-              <Message from="assistant">
-                <MessageContent>
-                  <div class="flex items-center gap-2">
-                    <div class="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span class="text-muted-foreground text-sm">
-                      {t("app.chat.thinking")}
-                    </span>
-                  </div>
-                </MessageContent>
-              </Message>
+              </Show>
             </Show>
-          </Show>
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
 
-      {/* Error Message */}
-      <Show when={error()}>
-        <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
-          <p class="text-sm text-destructive flex-1">{error()?.message}</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => clearError()}
+        {/* Error Message */}
+        <Show when={error()}>
+          <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
+            <p class="text-sm text-destructive flex-1">{error()?.message}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => clearError()}
+            >
+              {t("app.chat.dismiss")}
+            </Button>
+          </div>
+        </Show>
+
+        {/* Input Area */}
+        <div class="border-t pt-4">
+          <Input
+            onSubmit={handleSubmit}
+            class="w-full max-w-2xl mx-auto relative"
           >
-            {t("app.chat.dismiss")}
-          </Button>
+            <PromptInputTextarea
+              value={input()}
+              placeholder="Say something..."
+              onChange={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                setInput(target.value);
+              }}
+              class="pr-12"
+            />
+            <PromptInputSubmit
+              status={status() === "streaming" ? "streaming" : "ready"}
+              disabled={!input().trim()}
+              class="absolute bottom-1 right-1"
+            />
+          </Input>
         </div>
-      </Show>
-
-      {/* Input Area */}
-      <div class="border-t pt-4">
-        <Input
-          onSubmit={handleSubmit}
-          class="w-full max-w-2xl mx-auto relative"
-        >
-          <PromptInputTextarea
-            value={input()}
-            placeholder="Say something..."
-            onChange={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              setInput(target.value);
-            }}
-            class="pr-12"
-          />
-          <PromptInputSubmit
-            status={status() === "streaming" ? "streaming" : "ready"}
-            disabled={!input().trim()}
-            class="absolute bottom-1 right-1"
-          />
-        </Input>
       </div>
-    </div>
+    </ConversationProvider>
   );
 }

@@ -288,6 +288,7 @@ export type {
 // Conversation 组件
 export {
   Conversation,
+  ConversationProvider,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
@@ -295,6 +296,7 @@ export {
 
 export type {
   ConversationProps,
+  ConversationProviderProps,
   ConversationContentProps,
   ConversationEmptyStateProps,
   ConversationScrollButtonProps,
