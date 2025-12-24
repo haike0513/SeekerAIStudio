@@ -1,9 +1,9 @@
 import type { Component } from "solid-js";
-import InferencePanel from "@/components/InferencePanel";
-import SettingsPage from "@/components/SettingsPage";
-import WorkflowPage from "@/components/WorkflowPage";
-import ModelManagementPage from "@/components/ModelManagementPage";
-import AIChatPage from "@/components/AIChatPage";
+import InferencePage from "./inference";
+import SettingsPage from "./settings";
+import WorkflowPage from "./workflow";
+import ModelsPage from "./models";
+import ChatPage from "./chat";
 
 // 路由配置接口
 export interface RouteConfig {
@@ -16,7 +16,7 @@ export interface RouteConfig {
 export const routes: RouteConfig[] = [
   {
     path: "/",
-    component: InferencePanel,
+    component: InferencePage,
     name: "inference",
   },
   {
@@ -31,12 +31,12 @@ export const routes: RouteConfig[] = [
   },
   {
     path: "/models",
-    component: ModelManagementPage,
+    component: ModelsPage,
     name: "models",
   },
   {
     path: "/chat",
-    component: AIChatPage,
+    component: ChatPage,
     name: "chat",
   },
 ];

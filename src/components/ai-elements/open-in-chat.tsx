@@ -9,11 +9,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuItemLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { ChevronDown, ExternalLink, MessageCircle } from "lucide-solid";
 
 type Provider = {
@@ -106,7 +105,7 @@ export const OpenInChat: Component<OpenInChatProps> = (props) => {
 
   return (
     <DropdownMenu {...rest}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger>
         {props.children ?? (
           <Button variant="ghost" size="icon">
             <ExternalLink size={16} />
@@ -115,7 +114,7 @@ export const OpenInChat: Component<OpenInChatProps> = (props) => {
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>Open in</DropdownMenuLabel>
+        <DropdownMenuItemLabel>Open in</DropdownMenuItemLabel>
         <DropdownMenuSeparator />
         <For each={selectedProviders()}>
           {(provider) => (

@@ -4,7 +4,7 @@
  * 集成了 use-stick-to-bottom 的自动滚动功能
  */
 
-import { type Component, type JSX, createContext, useContext, Show, splitProps } from "solid-js";
+import { type Component, type JSX, createContext, useContext, Show, splitProps, createMemo } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowDown } from "lucide-solid";
@@ -16,9 +16,11 @@ type ConversationContextValue = {
   contentRef: (ref: HTMLElement | null) => void;
 };
 
+// 在 SolidJS 中，Context 的默认值使用 null（与其他组件保持一致）
 const ConversationContext = createContext<ConversationContextValue | null>(null);
 
-const useConversationContext = () => {
+// 保留这个辅助函数以便向后兼容，但组件应该直接使用 useContext
+export const useConversationContext = () => {
   const context = useContext(ConversationContext);
   if (!context) {
     throw new Error("Conversation components must be used within Conversation");
@@ -43,14 +45,15 @@ export const Conversation: Component<ConversationProps> = (props) => {
     stickToBottom.scrollToBottom();
   };
 
+  // 使用 createMemo 稳定 context value（参考 chain-of-thought.tsx 的实现）
+  const contextValue = createMemo(() => ({
+    isAtBottom: stickToBottom.isAtBottom,
+    scrollToBottom,
+    contentRef: stickToBottom.contentRef,
+  }));
+
   return (
-    <ConversationContext.Provider
-      value={{
-        isAtBottom: stickToBottom.isAtBottom,
-        scrollToBottom,
-        contentRef: stickToBottom.contentRef,
-      }}
-    >
+    <ConversationContext.Provider value={contextValue()}>
       <div
         ref={stickToBottom.scrollRef}
         class={cn("relative flex-1", props.class)}
@@ -67,7 +70,14 @@ export const Conversation: Component<ConversationProps> = (props) => {
 export type ConversationContentProps = JSX.HTMLAttributes<HTMLDivElement>;
 
 export const ConversationContent: Component<ConversationContentProps> = (props) => {
-  const { contentRef } = useConversationContext();
+  // 在 SolidJS 中，useContext 应该直接在组件顶层调用
+  const context = useContext(ConversationContext);
+  
+  if (!context) {
+    throw new Error("ConversationContent must be used within Conversation");
+  }
+  
+  const { contentRef } = context;
   const [, rest] = splitProps(props, ["class"]);
   
   return (
@@ -118,7 +128,14 @@ export const ConversationEmptyState: Component<ConversationEmptyStateProps> = (p
 export type ConversationScrollButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export const ConversationScrollButton: Component<ConversationScrollButtonProps> = (props) => {
-  const { isAtBottom, scrollToBottom } = useConversationContext();
+  // 在 SolidJS 中，useContext 应该在组件顶层调用
+  const context = useContext(ConversationContext);
+  
+  if (!context) {
+    throw new Error("ConversationScrollButton must be used within Conversation");
+  }
+  
+  const { isAtBottom, scrollToBottom } = context;
   const [, rest] = splitProps(props, ["class"]);
 
   return (
