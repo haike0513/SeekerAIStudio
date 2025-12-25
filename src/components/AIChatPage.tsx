@@ -86,10 +86,11 @@ export default function AIChatPage() {
   return (
     <ConversationProvider>
       <PromptInputProvider>
-        <div class="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+        {/* 使用负 margin 抵消容器的 padding，让聊天页面全屏显示 */}
+        <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6">
           {/* Messages Area with Conversation */}
-          <Conversation class="flex-1 min-h-0 mb-4">
-            <ConversationContent>
+          <Conversation class="flex-1 min-h-0 overflow-y-auto">
+            <ConversationContent class="max-w-3xl mx-auto w-full">
               <Show
                 when={messages().length > 0}
                 fallback={
@@ -137,30 +138,32 @@ export default function AIChatPage() {
             <ConversationScrollButton />
           </Conversation>
 
-          {/* Error Message */}
-          <Show when={error()}>
-            <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
-              <p class="text-sm text-destructive flex-1">{error()?.message}</p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => clearError()}
-              >
-                {t("app.chat.dismiss")}
-              </Button>
+          {/* Input Area - 固定在底部 */}
+          <div class="border-t bg-background">
+            <div class="max-w-3xl mx-auto w-full p-4">
+              {/* Error Message */}
+              <Show when={error()}>
+                <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
+                  <p class="text-sm text-destructive flex-1">{error()?.message}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => clearError()}
+                  >
+                    {t("app.chat.dismiss")}
+                  </Button>
+                </div>
+              </Show>
+              
+              <PromptInputWrapper
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                isModelSelectorOpen={isModelSelectorOpen}
+                setIsModelSelectorOpen={setIsModelSelectorOpen}
+                status={status}
+                sendMessage={sendMessage}
+              />
             </div>
-          </Show>
-
-          {/* Input Area */}
-          <div class="border-t pt-4">
-            <PromptInputWrapper
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              isModelSelectorOpen={isModelSelectorOpen}
-              setIsModelSelectorOpen={setIsModelSelectorOpen}
-              status={status}
-              sendMessage={sendMessage}
-            />
           </div>
         </div>
       </PromptInputProvider>

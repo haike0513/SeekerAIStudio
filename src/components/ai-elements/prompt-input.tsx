@@ -451,12 +451,29 @@ export const PromptInputTextarea: Component<PromptInputTextareaProps> = (props) 
     props.onChange?.(e);
   };
 
-  const [, rest] = splitProps(props, ["class", "value", "onChange", "onInput"]);
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Shift+Enter 发送消息
+    if (e.key === "Enter" && e.shiftKey) {
+      e.preventDefault();
+      // 查找最近的 form 元素并触发表单提交
+      const textarea = e.target as HTMLTextAreaElement;
+      const form = textarea.closest("form");
+      if (form) {
+        form.requestSubmit();
+      }
+      return;
+    }
+    // 调用用户自定义的 onKeyDown（如果有）
+    props.onKeyDown?.(e);
+  };
+
+  const [, rest] = splitProps(props, ["class", "value", "onChange", "onInput", "onKeyDown"]);
 
   return (
     <Textarea
       value={props.value ?? textInput?.value() ?? ""}
       onInput={handleInput}
+      onKeyDown={handleKeyDown}
       class={cn("min-h-[60px] resize-none", props.class)}
       {...rest}
     />
