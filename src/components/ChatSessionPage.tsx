@@ -52,12 +52,14 @@ import { MessageSquare, Check, Globe, Paperclip, Mic, History } from "lucide-sol
 import { Markdown } from "@/components/Markdown";
 
 // 模型列表（示例数据，可以从配置或 API 获取）
+// 使用 registry 格式: providerId:modelId
 const MODELS = [
-  { id: "qwen/qwen3-vl-8b", name: "Qwen3-VL 8B", provider: "qwen", chef: "Qwen", chefSlug: "qwen", providers: ["qwen"] },
-  { id: "gpt-4", name: "GPT-4", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
-  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
-  { id: "claude-3-opus", name: "Claude 3 Opus", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
-  { id: "claude-3-sonnet", name: "Claude 3 Sonnet", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
+  { id: "lmstudio:qwen/qwen3-vl-8b", name: "Qwen3-VL 8B", provider: "lmstudio", chef: "Qwen", chefSlug: "qwen", providers: ["lmstudio"] },
+  // 以下模型需要在 registry 中添加对应的 provider 后才能使用
+  { id: "openai:gpt-4", name: "GPT-4", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
+  { id: "openai:gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "openai", chef: "OpenAI", chefSlug: "openai", providers: ["openai", "azure"] },
+  { id: "anthropic:claude-3-opus", name: "Claude 3 Opus", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
+  { id: "anthropic:claude-3-sonnet", name: "Claude 3 Sonnet", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
 ];
 
 export default function ChatSessionPage() {

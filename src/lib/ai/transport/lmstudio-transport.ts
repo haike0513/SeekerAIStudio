@@ -1,18 +1,27 @@
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
 import { streamText } from "ai";
-import { lmstudio } from "../provider/lmstudio";
+import { registry } from "../registry";
+import { normalizeModelId } from "../utils";
 
 /**
- * 自定义 ChatTransport，直接使用 lmstudio provider
+ * 自定义 ChatTransport，使用 registry 来获取模型
+ * 支持 providerId:modelId 格式，例如: 'lmstudio:qwen/qwen3-vl-8b'
+ * 如果只提供 modelId，默认使用 'lmstudio' 作为 provider
+ * 
  * 无需通过 HTTP API，直接在前端调用 streamText
  */
 export class LMStudioChatTransport<UI_MESSAGE extends UIMessage>
   implements ChatTransport<UI_MESSAGE>
 {
-  private modelName: string;
+  private modelId: string;
 
-  constructor(modelName: string = "qwen/qwen3-vl-8b") {
-    this.modelName = modelName;
+  /**
+   * @param modelId - 模型 ID，支持格式:
+   *   - 'lmstudio:qwen/qwen3-vl-8b' (完整格式: providerId:modelId)
+   *   - 'qwen/qwen3-vl-8b' (简化格式，默认使用 lmstudio provider)
+   */
+  constructor(modelId: string = "lmstudio:qwen/qwen3-vl-8b") {
+    this.modelId = modelId;
   }
 
   async sendMessages(options: {
@@ -40,9 +49,14 @@ export class LMStudioChatTransport<UI_MESSAGE extends UIMessage>
       };
     });
 
-    // 使用 streamText 调用 lmstudio provider
+    // 使用 registry 获取模型
+    // 规范化模型 ID，确保使用 providerId:modelId 格式
+    const fullModelId = normalizeModelId(this.modelId, "lmstudio") as `lmstudio:${string}`;
+    const model = registry.languageModel(fullModelId);
+
+    // 使用 streamText 调用模型
     const result = await streamText({
-      model: lmstudio(this.modelName) as any,
+      model,
       messages: modelMessages,
       maxRetries: 1,
       abortSignal: options.abortSignal,
