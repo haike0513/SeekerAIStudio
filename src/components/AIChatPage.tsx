@@ -2,7 +2,6 @@ import { createSignal, createMemo, For, Show } from "solid-js";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { useI18n } from "@/lib/i18n";
 import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
-import type { FileUIPart } from "ai";
 
 // AI Elements 组件
 import {
@@ -22,16 +21,12 @@ import {
   PromptInputProvider,
   usePromptInputController,
   PromptInputAttachments,
-  PromptInputAttachment,
   PromptInputBody,
-  PromptInputFooter,
-  PromptInputTools,
   PromptInputActionMenu,
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
   PromptInputSpeechButton,
-  PromptInputButton,
   PromptInputTextarea,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
@@ -49,7 +44,7 @@ import {
   ModelSelectorLogoGroup,
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Check, Globe } from "lucide-solid";
+import { MessageSquare, Check, Globe, Paperclip, Mic } from "lucide-solid";
 
 // 模型列表（示例数据，可以从配置或 API 获取）
 const MODELS = [
@@ -73,7 +68,6 @@ export default function AIChatPage() {
     status,
     error,
     sendMessage,
-    stop,
     clearError,
   } = useChat({
     transport: transport(),
@@ -81,21 +75,19 @@ export default function AIChatPage() {
 
   const isLoading = () => status() === "streaming" || status() === "submitted";
 
-  const currentModel = () => MODELS.find((m) => m.id === selectedModel()) || MODELS[0];
-
   return (
     <ConversationProvider>
       <PromptInputProvider>
         {/* 使用负 margin 抵消容器的 padding，让聊天页面全屏显示 */}
         <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6">
           {/* Messages Area with Conversation */}
-          <Conversation class="flex-1 min-h-0 overflow-y-auto">
-            <ConversationContent class="max-w-3xl mx-auto w-full">
+          <Conversation class="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-background via-background to-background/95">
+            <ConversationContent class="max-w-3xl mx-auto w-full px-4 py-6">
               <Show
                 when={messages().length > 0}
                 fallback={
                   <ConversationEmptyState
-                    title={t("app.chat.empty")}
+                    title={t("app.settings.chat.empty")}
                     description="开始对话..."
                     icon={<MessageSquare size={48} class="text-muted-foreground" />}
                   />
@@ -106,7 +98,7 @@ export default function AIChatPage() {
                     <Message from={message.role}>
                       <MessageContent>
                         <For each={message.parts}>
-                          {(part, i) => {
+                          {(part) => {
                             if (part.type === "text") {
                               return (
                                 <MessageResponse>
@@ -127,7 +119,7 @@ export default function AIChatPage() {
                       <div class="flex items-center gap-2">
                         <div class="h-2 w-2 rounded-full bg-primary animate-pulse" />
                         <span class="text-muted-foreground text-sm">
-                          {t("app.chat.thinking")}
+                          {t("app.settings.chat.thinking")}
                         </span>
                       </div>
                     </MessageContent>
@@ -139,18 +131,19 @@ export default function AIChatPage() {
           </Conversation>
 
           {/* Input Area - 固定在底部 */}
-          <div class="border-t bg-background">
-            <div class="max-w-3xl mx-auto w-full p-4">
+          <div class="bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+            <div class="max-w-3xl mx-auto w-full px-4 pt-4 pb-6">
               {/* Error Message */}
               <Show when={error()}>
-                <div class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2">
+                <div class="mb-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-2 shadow-sm">
                   <p class="text-sm text-destructive flex-1">{error()?.message}</p>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => clearError()}
+                    class="h-7 px-2"
                   >
-                    {t("app.chat.dismiss")}
+                    {t("app.settings.chat.dismiss")}
                   </Button>
                 </div>
               </Show>
@@ -201,7 +194,7 @@ function PromptInputWrapper(props: {
         parts.push({ type: "text", text });
       }
       if (hasAttachments) {
-        parts.push(...files.map(f => ({ type: "file", ...f })));
+        parts.push(...files.map(f => ({ ...f })));
       }
       
       await props.sendMessage({
@@ -217,85 +210,120 @@ function PromptInputWrapper(props: {
   };
 
   return (
-    <PromptInput
-      status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"}
-      onSubmit={handleSubmit}
-    >
-      <PromptInputAttachments>
-        {(attachment) => <PromptInputAttachment data={attachment} />}
-      </PromptInputAttachments>
-      <PromptInputBody>
-        <PromptInputTextarea placeholder="输入消息..." />
-      </PromptInputBody>
-      <PromptInputFooter>
-        <PromptInputTools>
-          <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger />
-            <PromptInputActionMenuContent>
-              <PromptInputActionAddAttachments />
-            </PromptInputActionMenuContent>
-          </PromptInputActionMenu>
-          <PromptInputSpeechButton />
-          <PromptInputButton>
-            <Globe size={16} />
-            <span>搜索</span>
-          </PromptInputButton>
-          <ModelSelector
-            open={props.isModelSelectorOpen()}
-            onOpenChange={props.setIsModelSelectorOpen}
-          >
-            <ModelSelectorTrigger asChild>
-              <PromptInputButton>
-                {currentModel().chefSlug && (
-                  <ModelSelectorLogo provider={currentModel().chefSlug} />
-                )}
-                {currentModel().name && (
-                  <ModelSelectorName>{currentModel().name}</ModelSelectorName>
-                )}
-              </PromptInputButton>
-            </ModelSelectorTrigger>
-            <ModelSelectorContent>
-              <ModelSelectorInput placeholder="搜索模型..." />
-              <ModelSelectorList>
-                <ModelSelectorEmpty>未找到模型</ModelSelectorEmpty>
-                <For each={["OpenAI", "Anthropic", "Qwen"]}>
-                  {(chef) => (
-                    <ModelSelectorGroup heading={chef}>
-                      <For each={MODELS.filter((m) => m.chef === chef)}>
-                        {(model) => (
-                          <ModelSelectorItem
-                            value={model.id}
-                            onSelect={() => {
-                              props.setSelectedModel(model.id);
-                              props.setIsModelSelectorOpen(false);
-                            }}
-                          >
-                            <ModelSelectorLogo provider={model.chefSlug} />
-                            <ModelSelectorName>{model.name}</ModelSelectorName>
-                            <ModelSelectorLogoGroup>
-                              <For each={model.providers}>
-                                {(provider) => (
-                                  <ModelSelectorLogo provider={provider} />
-                                )}
-                              </For>
-                            </ModelSelectorLogoGroup>
-                            {props.selectedModel() === model.id ? (
-                              <Check class="ml-auto size-4" />
-                            ) : (
-                              <div class="ml-auto size-4" />
-                            )}
-                          </ModelSelectorItem>
-                        )}
-                      </For>
-                    </ModelSelectorGroup>
+    <div class="relative">
+      <PromptInput
+        status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"}
+        onSubmit={handleSubmit}
+        class="group"
+      >
+        <PromptInputAttachments />
+        
+        {/* 统一的输入容器 */}
+        <div class="relative flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/80 backdrop-blur-sm shadow-sm shadow-black/5 transition-all duration-300 focus-within:border-primary/60 focus-within:shadow-md focus-within:shadow-primary/10 focus-within:bg-background">
+          <PromptInputBody class="px-4 pt-4 pb-2">
+            <PromptInputTextarea 
+              placeholder="输入消息..." 
+              class="min-h-[60px] border-0 px-0 py-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none"
+            />
+          </PromptInputBody>
+          
+          {/* 底部工具栏 - 与输入框一体化 */}
+          <div class="flex items-center justify-between gap-2 px-4 pb-3 pt-2.5">
+            <div class="flex items-center gap-1">
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                  >
+                    <Paperclip size={16} class="shrink-0" />
+                  </Button>
+                </PromptInputActionMenuTrigger>
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments />
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+              
+              <PromptInputSpeechButton class="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors">
+                <Mic size={16} class="shrink-0" />
+              </PromptInputSpeechButton>
+              
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="h-8 px-2.5 text-muted-foreground hover:text-foreground hover:bg-accent/60 gap-1.5 transition-colors"
+              >
+                <Globe size={14} class="shrink-0" />
+                <span class="text-xs font-medium">搜索</span>
+              </Button>
+              
+              <ModelSelector
+                open={props.isModelSelectorOpen()}
+                onOpenChange={props.setIsModelSelectorOpen}
+              >
+                <ModelSelectorTrigger
+                  type="button"
+                  class="h-8 px-2.5 text-muted-foreground hover:text-foreground hover:bg-accent/60 gap-1.5 rounded-md text-xs font-medium inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {currentModel().chefSlug && (
+                    <ModelSelectorLogo provider={currentModel().chefSlug} />
                   )}
-                </For>
-              </ModelSelectorList>
-            </ModelSelectorContent>
-          </ModelSelector>
-        </PromptInputTools>
-        <PromptInputSubmit status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"} />
-      </PromptInputFooter>
-    </PromptInput>
+                  {currentModel().name && (
+                    <span class="text-xs font-medium">{currentModel().name}</span>
+                  )}
+                </ModelSelectorTrigger>
+                <ModelSelectorContent>
+                  <ModelSelectorInput placeholder="搜索模型..." />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>未找到模型</ModelSelectorEmpty>
+                    <For each={["OpenAI", "Anthropic", "Qwen"]}>
+                      {(chef) => (
+                        <ModelSelectorGroup>
+                          <div class="cmdk-group-heading">{chef}</div>
+                          <For each={MODELS.filter((m) => m.chef === chef)}>
+                            {(model) => (
+                              <ModelSelectorItem
+                                onClick={() => {
+                                  props.setSelectedModel(model.id);
+                                  props.setIsModelSelectorOpen(false);
+                                }}
+                                class="cursor-pointer"
+                              >
+                                <ModelSelectorLogo provider={model.chefSlug} />
+                                <ModelSelectorName>{model.name}</ModelSelectorName>
+                                <ModelSelectorLogoGroup>
+                                  <For each={model.providers}>
+                                    {(provider) => (
+                                      <ModelSelectorLogo provider={provider} />
+                                    )}
+                                  </For>
+                                </ModelSelectorLogoGroup>
+                                {props.selectedModel() === model.id ? (
+                                  <Check class="ml-auto size-4" />
+                                ) : (
+                                  <div class="ml-auto size-4" />
+                                )}
+                              </ModelSelectorItem>
+                            )}
+                          </For>
+                        </ModelSelectorGroup>
+                      )}
+                    </For>
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelector>
+            </div>
+            
+            <PromptInputSubmit 
+              status={props.status() === "streaming" ? "streaming" : props.status() === "submitted" ? "submitted" : "ready"}
+              class="h-8 w-8 p-0 shrink-0 shadow-sm hover:shadow-md transition-shadow"
+            />
+          </div>
+        </div>
+      </PromptInput>
+    </div>
   );
 }
