@@ -1,7 +1,11 @@
-import { createSignal, createMemo, For, Show } from "solid-js";
+import { createSignal, createMemo, For, Show, onMount, createEffect } from "solid-js";
+import { useParams, useNavigate, useSearchParams } from "@solidjs/router";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { useI18n } from "@/lib/i18n";
 import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
+import { useSessions } from "@/lib/solidjs/use-sessions";
+import { ChatHistoryList } from "@/components/ChatHistoryList";
+import type { UIMessage } from "ai";
 
 // AI Elements 组件
 import {
@@ -44,7 +48,8 @@ import {
   ModelSelectorLogoGroup,
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Check, Globe, Paperclip, Mic } from "lucide-solid";
+import { MessageSquare, Check, Globe, Paperclip, Mic, History } from "lucide-solid";
+import { cn } from "@/lib/utils";
 
 // 模型列表（示例数据，可以从配置或 API 获取）
 const MODELS = [
@@ -55,13 +60,31 @@ const MODELS = [
   { id: "claude-3-sonnet", name: "Claude 3 Sonnet", provider: "anthropic", chef: "Anthropic", chefSlug: "anthropic", providers: ["anthropic", "azure"] },
 ];
 
-export default function AIChatPage() {
+export default function ChatSessionPage() {
   const { t } = useI18n();
+  const params = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedModel, setSelectedModel] = createSignal(MODELS[0].id);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = createSignal(false);
+  const [isHistoryOpen, setIsHistoryOpen] = createSignal(false);
+  const [hasHandledInitialPrompt, setHasHandledInitialPrompt] = createSignal(false);
+
+  // Session管理
+  const {
+    currentSessionId,
+    createSession,
+    switchToSession,
+    saveSessionMessages,
+    loadSessionMessages,
+    sessions,
+  } = useSessions();
 
   // 使用 createMemo 根据模型创建 transport
   const transport = createMemo(() => new LMStudioChatTransport(selectedModel()));
+
+  // 当前session的初始消息
+  const [initialMessages, setInitialMessages] = createSignal<UIMessage[]>([]);
 
   const {
     messages,
@@ -69,9 +92,89 @@ export default function AIChatPage() {
     error,
     sendMessage,
     clearError,
+    setMessages,
   } = useChat({
     transport: transport(),
+    initialMessages: initialMessages(),
   });
+
+  // 初始化或切换session时加载消息
+  createEffect(() => {
+    const sessionId = currentSessionId();
+    if (sessionId) {
+      const loadedMessages = loadSessionMessages(sessionId);
+      setInitialMessages(loadedMessages);
+      // 使用setMessages来更新Chat实例的消息
+      setMessages(loadedMessages);
+      
+      // 如果URL中有prompt参数且消息为空，自动发送
+      const prompt = searchParams.prompt;
+      if (prompt && loadedMessages.length === 0 && !hasHandledInitialPrompt()) {
+        setHasHandledInitialPrompt(true);
+        // 清除URL中的prompt参数
+        setSearchParams({ prompt: undefined }, { replace: true });
+        // 延迟发送，确保chat实例已准备好
+        setTimeout(() => {
+          sendMessage({
+            role: "user",
+            parts: [{ type: "text", text: prompt }],
+          }).catch((err) => {
+            console.error("自动发送消息失败:", err);
+          });
+        }, 100);
+      }
+    } else {
+      setInitialMessages([]);
+      setMessages([]);
+    }
+  });
+
+  // 当消息变化时保存到session
+  createEffect(() => {
+    const sessionId = currentSessionId();
+    const msgs = messages();
+    if (sessionId && msgs.length > 0) {
+      // 延迟保存，避免频繁写入
+      const timer = setTimeout(() => {
+        saveSessionMessages(sessionId, msgs);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  });
+
+  // 从URL参数同步session（这个页面只在有sessionId时才显示）
+  createEffect(() => {
+    const urlSessionId = params.sessionId;
+    const currentId = currentSessionId();
+    const allSessions = sessions();
+    
+    if (urlSessionId) {
+      // 检查是否存在该session
+      const session = allSessions.find((s) => s.id === urlSessionId);
+      if (session) {
+        // Session存在，如果当前sessionId不同，则切换
+        if (currentId !== urlSessionId) {
+          switchToSession(urlSessionId);
+        }
+      } else {
+        // URL中的session不存在，重定向到首页
+        navigate("/chat", { replace: true });
+      }
+    }
+  });
+
+  // 处理session切换
+  const handleSessionSelect = (sessionId: string) => {
+    switchToSession(sessionId);
+    navigate(`/chat/${sessionId}`);
+    setIsHistoryOpen(false);
+  };
+
+  // 处理新建session - 跳转到首页
+  const handleNewSession = () => {
+    navigate("/chat");
+    setIsHistoryOpen(false);
+  };
 
   const isLoading = () => status() === "streaming" || status() === "submitted";
 
@@ -79,7 +182,32 @@ export default function AIChatPage() {
     <ConversationProvider>
       <PromptInputProvider>
         {/* 使用负 margin 抵消容器的 padding，让聊天页面全屏显示 */}
-        <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6">
+        <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6 relative">
+          {/* 历史列表侧边栏 */}
+          <Show when={isHistoryOpen()}>
+            <div class="absolute left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-50 shadow-lg">
+              <ChatHistoryList
+                currentSessionId={currentSessionId}
+                onSessionSelect={handleSessionSelect}
+                onNewSession={handleNewSession}
+              />
+            </div>
+          </Show>
+          
+          {/* 主内容区域 */}
+          <div class={cn("flex-1 flex flex-col transition-all duration-300", isHistoryOpen() && "ml-64")}>
+          {/* 历史按钮 */}
+          <div class="absolute top-4 left-4 z-40">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen())}
+              class="shadow-sm"
+            >
+              <History size={18} />
+            </Button>
+          </div>
+
           {/* Messages Area with Conversation */}
           <Conversation class="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-background via-background to-background/95">
             <ConversationContent class="max-w-3xl mx-auto w-full px-4 py-6">
@@ -157,6 +285,7 @@ export default function AIChatPage() {
                 sendMessage={sendMessage}
               />
             </div>
+          </div>
           </div>
         </div>
       </PromptInputProvider>

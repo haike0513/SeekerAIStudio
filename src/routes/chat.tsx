@@ -1,7 +1,7 @@
 /**
- * AI 聊天页面路由
+ * AI 聊天会话页面路由（有sessionId时显示）
  */
-import AIChatPage from "@/components/AIChatPage";
+import ChatSessionPage from "@/components/ChatSessionPage";
 
-export default AIChatPage;
+export default ChatSessionPage;
 

@@ -3,6 +3,8 @@ import { Router, Route } from "@solidjs/router";
 import { useTheme } from "./lib/theme";
 import Sidebar from "./components/Sidebar";
 import { routes } from "./routes";
+import ChatHomePage from "./components/ChatHomePage";
+import ChatSessionPage from "./routes/chat";
 import "./App.css";
 
 function Layout(props: { children: any }) {
@@ -32,9 +34,15 @@ function Layout(props: { children: any }) {
 function App() {
   return (
     <Router root={(props) => <Layout>{props.children}</Layout>}>
-      {routes.map((route) => (
-        <Route path={route.path} component={route.component} />
-      ))}
+      {routes
+        .filter((route) => route.path !== "/chat") // 过滤掉旧的/chat路由
+        .map((route) => (
+          <Route path={route.path} component={route.component} />
+        ))}
+      {/* Chat首页 - 默认展示推荐内容 */}
+      <Route path="/chat" component={ChatHomePage} />
+      {/* Chat会话页面 - 有sessionId时显示 */}
+      <Route path="/chat/:sessionId" component={ChatSessionPage} />
     </Router>
   );
 }
