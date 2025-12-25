@@ -1,4 +1,4 @@
-import { createSignal, createMemo, For, Show, onMount, createEffect } from "solid-js";
+import { createSignal, createMemo, For, Show, createEffect } from "solid-js";
 import { useParams, useNavigate, useSearchParams } from "@solidjs/router";
 import { useChat } from "@/lib/solidjs/use-chat";
 import { useI18n } from "@/lib/i18n";
@@ -49,7 +49,7 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Check, Globe, Paperclip, Mic, History } from "lucide-solid";
-import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/Markdown";
 
 // 模型列表（示例数据，可以从配置或 API 获取）
 const MODELS = [
@@ -73,7 +73,6 @@ export default function ChatSessionPage() {
   // Session管理
   const {
     currentSessionId,
-    createSession,
     switchToSession,
     saveSessionMessages,
     loadSessionMessages,
@@ -108,7 +107,7 @@ export default function ChatSessionPage() {
       setMessages(loadedMessages);
       
       // 如果URL中有prompt参数且消息为空，自动发送
-      const prompt = searchParams.prompt;
+      const prompt = Array.isArray(searchParams.prompt) ? searchParams.prompt[0] : searchParams.prompt;
       if (prompt && loadedMessages.length === 0 && !hasHandledInitialPrompt()) {
         setHasHandledInitialPrompt(true);
         // 清除URL中的prompt参数
@@ -183,30 +182,35 @@ export default function ChatSessionPage() {
       <PromptInputProvider>
         {/* 使用负 margin 抵消容器的 padding，让聊天页面全屏显示 */}
         <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6 relative">
-          {/* 历史列表侧边栏 */}
+          {/* 历史列表侧边栏 - 相对于main内容区域悬浮 */}
           <Show when={isHistoryOpen()}>
-            <div class="absolute left-0 top-0 bottom-0 w-64 bg-card border-r border-border z-50 shadow-lg">
+            <div class="absolute left-4 top-4 bottom-4 w-64 bg-card border border-border rounded-lg shadow-lg z-50">
               <ChatHistoryList
                 currentSessionId={currentSessionId}
                 onSessionSelect={handleSessionSelect}
                 onNewSession={handleNewSession}
+                showCollapseButton={true}
+                onCollapse={() => setIsHistoryOpen(false)}
               />
             </div>
           </Show>
           
+          {/* 历史按钮 - 仅在历史列表关闭时显示 */}
+          <Show when={!isHistoryOpen()}>
+            <div class="absolute top-4 left-4 z-40">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsHistoryOpen(true)}
+                class="shadow-sm"
+              >
+                <History size={18} />
+              </Button>
+            </div>
+          </Show>
+          
           {/* 主内容区域 */}
-          <div class={cn("flex-1 flex flex-col transition-all duration-300", isHistoryOpen() && "ml-64")}>
-          {/* 历史按钮 */}
-          <div class="absolute top-4 left-4 z-40">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsHistoryOpen(!isHistoryOpen())}
-              class="shadow-sm"
-            >
-              <History size={18} />
-            </Button>
-          </div>
+          <div class="flex-1 flex flex-col">
 
           {/* Messages Area with Conversation */}
           <Conversation class="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-background via-background to-background/95">
@@ -222,24 +226,32 @@ export default function ChatSessionPage() {
                 }
               >
                 <For each={messages()}>
-                  {(message) => (
-                    <Message from={message.role}>
-                      <MessageContent>
-                        <For each={message.parts}>
-                          {(part) => {
-                            if (part.type === "text") {
-                              return (
-                                <MessageResponse>
-                                  {part.text}
-                                </MessageResponse>
-                              );
-                            }
-                            return null;
-                          }}
-                        </For>
-                      </MessageContent>
-                    </Message>
-                  )}
+                  {(message) => {
+                    const isUser = message.role === "user";
+                    return (
+                      <Message from={message.role}>
+                        <MessageContent>
+                          <For each={message.parts}>
+                            {(part) => {
+                              if (part.type === "text") {
+                                return (
+                                  <MessageResponse>
+                                    <Show
+                                      when={!isUser}
+                                      fallback={<span class="whitespace-pre-wrap break-words">{part.text}</span>}
+                                    >
+                                      <Markdown content={part.text} />
+                                    </Show>
+                                  </MessageResponse>
+                                );
+                              }
+                              return null;
+                            }}
+                          </For>
+                        </MessageContent>
+                      </Message>
+                    );
+                  }}
                 </For>
                 <Show when={isLoading()}>
                   <Message from="assistant">

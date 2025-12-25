@@ -38,6 +38,7 @@
     "clsx": "^2.1.1",
     "cmdk-solid": "^1.1.2",
     "lucide-solid": "^0.561.0",
+    "marked": "^17.0.1",
     "nanoid": "^5.1.6",
     "solid-icons": "^1.1.0",
     "solid-js": "^1.9.3",
