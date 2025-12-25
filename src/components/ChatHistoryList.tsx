@@ -7,13 +7,15 @@ import { For, Show, type Component } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSessions, type ChatSession } from "@/lib/solidjs/use-sessions";
-import { MessageSquare, Plus, Trash2, Clock } from "lucide-solid";
+import { MessageSquare, Plus, Trash2, Clock, ChevronLeft } from "lucide-solid";
 
 export interface ChatHistoryListProps {
   class?: string;
   currentSessionId: () => string | null;
-  onSessionSelect: (sessionId: string) => void;
+  onSessionSelect: (sessionId: string, session: ChatSession) => void;
   onNewSession: () => void;
+  showCollapseButton?: boolean;
+  onCollapse?: () => void;
 }
 
 export const ChatHistoryList: Component<ChatHistoryListProps> = (props) => {
@@ -50,7 +52,23 @@ export const ChatHistoryList: Component<ChatHistoryListProps> = (props) => {
   };
 
   return (
-    <div class={cn("flex flex-col h-full", props.class)}>
+    <div class={cn("flex flex-col h-full relative", props.class)}>
+      {/* 标题栏 - 标题和收缩按钮 */}
+      {props.showCollapseButton && props.onCollapse && (
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border/50 bg-muted/30">
+          <h2 class="text-sm font-semibold text-foreground">历史记录</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => props.onCollapse?.()}
+            class="h-7 w-7 -mr-1 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            title="收起历史记录"
+          >
+            <ChevronLeft size={16} />
+          </Button>
+        </div>
+      )}
+      
       {/* 头部 - 新建按钮 */}
       <div class="p-4 border-b border-border/50">
         <Button
@@ -87,7 +105,7 @@ export const ChatHistoryList: Component<ChatHistoryListProps> = (props) => {
                         ? "bg-primary/10 text-primary"
                         : "hover:bg-accent/50 text-foreground"
                     )}
-                    onClick={() => props.onSessionSelect(session.id)}
+                    onClick={() => props.onSessionSelect(session.id, session)}
                   >
                     <MessageSquare
                       size={16}

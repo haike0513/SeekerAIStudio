@@ -164,7 +164,7 @@ export default function ChatSessionPage() {
   });
 
   // 处理session切换
-  const handleSessionSelect = (sessionId: string) => {
+  const handleSessionSelect = (sessionId: string, _session: any) => {
     switchToSession(sessionId);
     navigate(`/chat/${sessionId}`);
     setIsHistoryOpen(false);

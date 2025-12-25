@@ -4,9 +4,8 @@
  * 用户输入并提交后创建新session并跳转
  */
 
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, createEffect, For, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { useI18n } from "@/lib/i18n";
 import { useSessions } from "@/lib/solidjs/use-sessions";
 import {
   PromptInput,
@@ -17,8 +16,9 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Sparkles, Lightbulb, FileText, Code, Globe, Search } from "lucide-solid";
+import { Sparkles, FileText, Code, Search, History } from "lucide-solid";
 import { cn } from "@/lib/utils";
+import { ChatHistoryList } from "@/components/ChatHistoryList";
 
 // 推荐内容示例
 const RECOMMENDATIONS = [
@@ -58,23 +58,65 @@ const MODELS = [
 ];
 
 export default function ChatHomePage() {
-  const { t } = useI18n();
   const navigate = useNavigate();
   const { createSession } = useSessions();
-  const [selectedModel, setSelectedModel] = createSignal(MODELS[0].id);
+  const [selectedModel] = createSignal(MODELS[0].id);
+  const [isHistoryOpen, setIsHistoryOpen] = createSignal(false);
+  const [prefillText, setPrefillText] = createSignal<string | null>(null);
 
   const handleRecommendationClick = (prompt: string) => {
-    // 创建新session并跳转
-    const sessionId = createSession(selectedModel());
-    navigate(`/chat/${sessionId}?prompt=${encodeURIComponent(prompt)}`);
+    // 将文字填入输入框，不触发发送
+    setPrefillText(prompt);
+  };
+
+  // 处理session切换 - 在首页时将文字填入输入框，不跳转
+  const handleSessionSelect = (_sessionId: string, session: { title: string; preview?: string }) => {
+    // 在首页时，将预览文本或标题填入输入框，不跳转到会话页面
+    // 优先使用预览文本（第一条用户消息），如果没有则使用标题
+    const textToFill = session.preview || session.title;
+    setPrefillText(textToFill);
+  };
+
+  // 处理新建session - 保持在首页
+  const handleNewSession = () => {
+    // 首页不需要做任何操作，用户可以继续在首页输入
   };
 
   return (
     <PromptInputProvider>
-      <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6">
-        {/* 主要内容区域 */}
-        <div class="flex-1 flex flex-col items-center justify-center px-4 py-12">
-          <div class="w-full max-w-3xl space-y-8">
+      <div class="flex flex-col h-[calc(100vh-2rem)] -mx-4 -my-4 lg:-mx-6 lg:-my-6 relative">
+        {/* 历史列表侧边栏 - 相对于main内容区域悬浮 */}
+        <Show when={isHistoryOpen()}>
+          <div class="absolute left-4 top-4 bottom-4 w-64 bg-card border border-border rounded-lg shadow-lg z-50">
+            <ChatHistoryList
+              currentSessionId={() => null}
+              onSessionSelect={handleSessionSelect}
+              onNewSession={handleNewSession}
+              showCollapseButton={true}
+              onCollapse={() => setIsHistoryOpen(false)}
+            />
+          </div>
+        </Show>
+        
+        {/* 历史按钮 - 仅在历史列表关闭时显示 */}
+        <Show when={!isHistoryOpen()}>
+          <div class="absolute top-4 left-4 z-40">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsHistoryOpen(true)}
+              class="shadow-sm"
+            >
+              <History size={18} />
+            </Button>
+          </div>
+        </Show>
+        
+        {/* 主内容区域 */}
+        <div class="flex-1 flex flex-col">
+          {/* 主要内容区域 */}
+          <div class="flex-1 flex flex-col items-center justify-center px-4 py-12">
+            <div class="w-full max-w-3xl space-y-8">
             {/* 欢迎标题 */}
             <div class="text-center space-y-2">
               <h1 class="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -115,17 +157,20 @@ export default function ChatHomePage() {
               </For>
             </div>
           </div>
-        </div>
+          </div>
 
-        {/* 输入区域 - 固定在底部 */}
-        <div class="bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 border-t">
-          <div class="max-w-3xl mx-auto w-full px-4 pt-4 pb-6">
-            <ChatHomeInput
-              onSend={(text) => {
-                const sessionId = createSession(selectedModel());
-                navigate(`/chat/${sessionId}?prompt=${encodeURIComponent(text)}`);
-              }}
-            />
+          {/* 输入区域 - 固定在底部 */}
+          <div class="bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 border-t">
+            <div class="max-w-3xl mx-auto w-full px-4 pt-4 pb-6">
+              <ChatHomeInput
+                prefillText={prefillText}
+                onPrefillApplied={() => setPrefillText(null)}
+                onSend={(text) => {
+                  const sessionId = createSession(selectedModel());
+                  navigate(`/chat/${sessionId}?prompt=${encodeURIComponent(text)}`);
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -134,8 +179,37 @@ export default function ChatHomePage() {
 }
 
 // 输入组件
-function ChatHomeInput(props: { onSend: (text: string) => void }) {
+function ChatHomeInput(props: { 
+  prefillText: () => string | null;
+  onPrefillApplied: () => void;
+  onSend: (text: string) => void;
+}) {
   const controller = usePromptInputController();
+
+  // 当 prefillText 变化时，填入输入框
+  createEffect(() => {
+    const text = props.prefillText();
+    if (text !== null && text.trim()) {
+      // 先设置输入框的值
+      controller.textInput.setInput(text);
+      
+      // 延迟重置 prefillText，确保输入框已经更新
+      setTimeout(() => {
+        props.onPrefillApplied();
+      }, 0);
+      
+      // 聚焦到输入框并移动光标到末尾
+      requestAnimationFrame(() => {
+        const textarea = document.querySelector('textarea[placeholder="输入消息开始对话..."]') as HTMLTextAreaElement;
+        if (textarea) {
+          textarea.focus();
+          // 确保使用最新的文本长度
+          const currentValue = controller.textInput.value();
+          textarea.setSelectionRange(currentValue.length, currentValue.length);
+        }
+      });
+    }
+  });
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
