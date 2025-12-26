@@ -85,12 +85,11 @@ export default function ChatHomePage() {
     setPrefillText(prompt);
   };
 
-  // 处理session切换 - 在首页时将文字填入输入框，不跳转
-  const handleSessionSelect = (_sessionId: string, session: { title: string; preview?: string }) => {
-    // 在首页时，将预览文本或标题填入输入框，不跳转到会话页面
-    // 优先使用预览文本（第一条用户消息），如果没有则使用标题
-    const textToFill = session.preview || session.title;
-    setPrefillText(textToFill);
+  // 处理session切换 - 路由到对应的会话页面
+  const handleSessionSelect = (sessionId: string, _session: { title: string; preview?: string }) => {
+    // 路由到对应的会话页面
+    navigate(`/chat/${sessionId}`);
+    setIsHistoryOpen(false);
   };
 
   // 处理新建session - 保持在首页
