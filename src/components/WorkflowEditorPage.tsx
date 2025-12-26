@@ -25,7 +25,6 @@ import type {
 } from "@ensolid/solidflow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/lib/i18n";
 import { ArrowLeft } from "lucide-solid";
 
 // --- Node Components ---
@@ -68,7 +67,6 @@ const AgentNode: Component<NodeComponentProps> = (props) => {
 
       {/* Handles */}
       <Handle
-        nodeId={props.node.id}
         type="target"
         position="left"
         style={{
@@ -76,10 +74,11 @@ const AgentNode: Component<NodeComponentProps> = (props) => {
           height: "12px",
           background: "#6366f1",
           border: "2px solid white",
+          "border-radius": "50%",
         }}
+        class="react-flow__handle react-flow__handle-left"
       />
       <Handle
-        nodeId={props.node.id}
         type="source"
         position="right"
         style={{
@@ -87,7 +86,9 @@ const AgentNode: Component<NodeComponentProps> = (props) => {
           height: "12px",
           background: "#6366f1",
           border: "2px solid white",
+          "border-radius": "50%",
         }}
+        class="react-flow__handle react-flow__handle-right"
       />
     </div>
   );
@@ -118,7 +119,6 @@ const TaskNode: Component<NodeComponentProps> = (props) => {
         </p>
       </div>
       <Handle
-        nodeId={props.node.id}
         type="target"
         position="top"
         style={{
@@ -126,10 +126,11 @@ const TaskNode: Component<NodeComponentProps> = (props) => {
           height: "12px",
           background: "#10b981",
           border: "2px solid white",
+          "border-radius": "50%",
         }}
+        class="react-flow__handle react-flow__handle-top"
       />
       <Handle
-        nodeId={props.node.id}
         type="source"
         position="bottom"
         style={{
@@ -137,7 +138,9 @@ const TaskNode: Component<NodeComponentProps> = (props) => {
           height: "12px",
           background: "#10b981",
           border: "2px solid white",
+          "border-radius": "50%",
         }}
+        class="react-flow__handle react-flow__handle-bottom"
       />
     </div>
   );
@@ -152,7 +155,6 @@ const TriggerNode: Component<NodeComponentProps> = (props) => {
     >
       <span class="text-2xl">🚀</span>
       <Handle
-        nodeId={props.node.id}
         type="source"
         position="right"
         style={{
@@ -160,7 +162,9 @@ const TriggerNode: Component<NodeComponentProps> = (props) => {
           height: "16px",
           background: "#f97316",
           border: "4px solid white",
+          "border-radius": "50%",
         }}
+        class="react-flow__handle react-flow__handle-right"
       />
     </div>
   );
@@ -183,10 +187,15 @@ const ToolNode: Component<NodeComponentProps> = (props) => {
         <div class="text-[10px] text-gray-500">External Capability</div>
       </div>
       <Handle
-        nodeId={props.node.id}
         type="target"
         position="left"
-        style={{ background: "#9ca3af" }}
+        style={{
+          background: "#9ca3af",
+          width: "12px",
+          height: "12px",
+          "border-radius": "50%",
+        }}
+        class="react-flow__handle react-flow__handle-left"
       />
     </div>
   );
@@ -200,7 +209,6 @@ const METADATA_KEY = "workflows_metadata";
 export const WorkflowEditorPage: Component = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const { t } = useI18n();
   const workflowId = () => params.id;
 
   const [showMenu, setShowMenu] = createSignal(false);
@@ -212,6 +220,7 @@ export const WorkflowEditorPage: Component = () => {
   );
   const [selectedNodeId, setSelectedNodeId] = createSignal<string | null>(null);
   const [isLocked, setIsLocked] = createSignal(false);
+  const [isLoaded, setIsLoaded] = createSignal(false); // 标记是否已加载完成
 
   // 加载工作流数据
   const loadWorkflow = () => {
@@ -237,8 +246,11 @@ export const WorkflowEditorPage: Component = () => {
         ]);
         setEdges([]);
       }
+      // 标记为已加载
+      setIsLoaded(true);
     } catch (error) {
       console.error("加载工作流失败:", error);
+      setIsLoaded(true); // 即使出错也标记为已加载，避免无限循环
     }
   };
 
@@ -246,6 +258,9 @@ export const WorkflowEditorPage: Component = () => {
   const saveWorkflow = () => {
     const id = workflowId();
     if (!id) return;
+    
+    // 如果还未加载完成，不执行保存
+    if (!isLoaded()) return;
 
     try {
       const data = {
@@ -292,8 +307,11 @@ export const WorkflowEditorPage: Component = () => {
     }
   };
 
-  // 自动保存
+  // 自动保存（仅在加载完成后生效）
   createEffect(() => {
+    // 如果还未加载完成，不执行保存
+    if (!isLoaded()) return;
+    
     // 当节点或边发生变化时自动保存
     nodes();
     edges();
