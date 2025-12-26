@@ -1,7 +1,7 @@
 /**
- * 工作流页面路由
+ * 工作流列表页面路由
  */
-import WorkflowPage from "@/components/WorkflowPage";
+import WorkflowListPage from "@/components/WorkflowListPage";
 
-export default WorkflowPage;
+export default WorkflowListPage;
 

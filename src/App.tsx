@@ -1,10 +1,11 @@
 import { createSignal } from "solid-js";
-import { Router, Route } from "@solidjs/router";
+import { Router, Route, useLocation } from "@solidjs/router";
 import { useTheme } from "./lib/theme";
 import Sidebar from "./components/Sidebar";
 import { routes } from "./routes";
 import ChatHomePage from "./components/ChatHomePage";
 import ChatSessionPage from "./routes/chat";
+import { WorkflowEditorPage } from "./components/WorkflowEditorPage";
 import "./App.css";
 
 function Layout(props: { children: any }) {
@@ -13,6 +14,11 @@ function Layout(props: { children: any }) {
   
   // Sidebar 折叠状态
   const [isSidebarCollapsed, setIsSidebarCollapsed] = createSignal(false);
+  
+  // 检查当前路由，决定是否使用 container
+  const location = useLocation();
+  const isFullScreenPage = () => 
+    location.pathname.startsWith("/workflow/") && location.pathname !== "/workflow";
 
   return (
     <div class="flex h-screen w-screen overflow-hidden bg-background">
@@ -23,9 +29,14 @@ function Layout(props: { children: any }) {
       <main 
         class="flex-1 overflow-y-auto duration-300 ease-in-out"
       >
-        <div class="container mx-auto p-4 lg:p-6 max-w-7xl">
-          {props.children}
-        </div>
+        <Show 
+          when={!isFullScreenPage()}
+          fallback={props.children}
+        >
+          <div class="container mx-auto p-4 lg:p-6 max-w-7xl">
+            {props.children}
+          </div>
+        </Show>
       </main>
     </div>
   );
@@ -43,6 +54,8 @@ function App() {
       <Route path="/chat" component={ChatHomePage} />
       {/* Chat会话页面 - 有sessionId时显示 */}
       <Route path="/chat/:sessionId" component={ChatSessionPage} />
+      {/* 工作流编辑页面 - 有id时显示 */}
+      <Route path="/workflow/:id" component={WorkflowEditorPage} />
     </Router>
   );
 }

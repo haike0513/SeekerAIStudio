@@ -14,6 +14,9 @@ importers:
       '@ai-sdk/provider':
         specifier: ^3.0.0
         version: 3.0.0
+      '@ensolid/solidflow':
+        specifier: ^0.0.2
+        version: 0.0.2(solid-js@1.9.10)
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.10)
@@ -246,6 +249,11 @@ packages:
     resolution: {integrity: sha512-Ox2kYyxy7NoXdKWdHeDEjZxClwzO4SKM8plAaVwmAJPxHMqA0rLOoAsa+hBDwRLpctf+ZRnAd/ykguuJidnaTA==}
     peerDependencies:
       solid-js: ^1.8
+
+  '@ensolid/solidflow@0.0.2':
+    resolution: {integrity: sha512-Z+p2gR6ZaiTUbfVgNCEIBwkibHlG1x3Q6JWHu34w02C3kiXbPXJ4tjUScyx7JZ4ilAu4dmSSUomz+musHPSaOA==}
+    peerDependencies:
+      solid-js: ^1.9.9
 
   '@esbuild/aix-ppc64@0.27.1':
     resolution: {integrity: sha512-HHB50pdsBX6k47S4u5g/CaLjqS3qwaOVE5ILsq64jyzgMhLuCuZ8rGzM9yhsAjfjkbgUPMzZEPa7DAp7yz6vuA==}
@@ -1491,6 +1499,10 @@ snapshots:
   '@corvu/utils@0.4.2(solid-js@1.9.10)':
     dependencies:
       '@floating-ui/dom': 1.7.4
+      solid-js: 1.9.10
+
+  '@ensolid/solidflow@0.0.2(solid-js@1.9.10)':
+    dependencies:
       solid-js: 1.9.10
 
   '@esbuild/aix-ppc64@0.27.1':
