@@ -16,9 +16,18 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileText, Code, Search, History } from "lucide-solid";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sparkles, FileText, Code, Search, History, User } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { ChatHistoryList } from "@/components/ChatHistoryList";
+import { AI_ROLES, getDefaultRole, type AIRole } from "@/lib/ai/roles";
+import { useI18n } from "@/lib/i18n";
 
 // 推荐内容示例
 const RECOMMENDATIONS = [
@@ -58,11 +67,18 @@ const MODELS = [
 ];
 
 export default function ChatHomePage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { createSession } = useSessions();
   const [selectedModel] = createSignal(MODELS[0].id);
+  const [selectedRoleId, setSelectedRoleId] = createSignal<string>(getDefaultRole().id);
   const [isHistoryOpen, setIsHistoryOpen] = createSignal(false);
   const [prefillText, setPrefillText] = createSignal<string | null>(null);
+
+  // 获取当前选中的角色
+  const selectedRole = () => {
+    return AI_ROLES.find((r) => r.id === selectedRoleId()) || getDefaultRole();
+  };
 
   const handleRecommendationClick = (prompt: string) => {
     // 将文字填入输入框，不触发发送
@@ -118,13 +134,71 @@ export default function ChatHomePage() {
           <div class="flex-1 flex flex-col items-center justify-center px-4 py-12">
             <div class="w-full max-w-3xl space-y-8">
             {/* 欢迎标题 */}
-            <div class="text-center space-y-2">
-              <h1 class="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                AI 对话助手
-              </h1>
-              <p class="text-muted-foreground text-lg">
-                开始对话，或选择一个推荐主题
-              </p>
+            <div class="text-center space-y-4">
+              <div class="space-y-2">
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  AI 对话助手
+                </h1>
+                <p class="text-muted-foreground text-lg">
+                  开始对话，或选择一个推荐主题
+                </p>
+              </div>
+
+              {/* 角色选择器 */}
+              <div class="flex items-center justify-center gap-3">
+                <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User size={16} />
+                  <span>{t("app.settings.chat.role.title")}</span>
+                </div>
+                <Select
+                  options={AI_ROLES}
+                  value={selectedRoleId()}
+                  onChange={(value) => {
+                    // 处理 Select 可能返回对象或字符串的情况
+                    if (value === null || value === undefined) {
+                      setSelectedRoleId(getDefaultRole().id);
+                    } else {
+                      const roleId = typeof value === 'object' && 'id' in value 
+                        ? (value as any).id 
+                        : String(value);
+                      setSelectedRoleId(roleId);
+                    }
+                  }}
+                  optionValue={"id" as any}
+                  optionTextValue={"name" as any}
+                  placeholder={t("app.settings.chat.role.title")}
+                  itemComponent={(props) => {
+                    const role = props.item.rawValue as AIRole;
+                    return (
+                      <SelectItem item={props.item}>
+                        <div class="flex flex-col gap-0.5">
+                          <span class="font-medium">{role.name}</span>
+                          <span class="text-xs text-muted-foreground line-clamp-1">
+                            {role.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  }}
+                >
+                  <SelectTrigger class="w-[280px]">
+                    <SelectValue<AIRole>>
+                      {() => {
+                        const role = selectedRole();
+                        return (
+                          <div class="flex flex-col gap-0.5">
+                            <span class="font-medium">{role.name}</span>
+                            <span class="text-xs text-muted-foreground line-clamp-1">
+                              {role.description}
+                            </span>
+                          </div>
+                        );
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              </div>
             </div>
 
             {/* 推荐内容网格 */}
@@ -166,7 +240,7 @@ export default function ChatHomePage() {
                 prefillText={prefillText}
                 onPrefillApplied={() => setPrefillText(null)}
                 onSend={(text) => {
-                  const sessionId = createSession(selectedModel());
+                  const sessionId = createSession(selectedModel(), selectedRoleId());
                   navigate(`/chat/${sessionId}?prompt=${encodeURIComponent(text)}`);
                 }}
               />

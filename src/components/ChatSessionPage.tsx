@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { LMStudioChatTransport } from "@/lib/ai/transport/lmstudio-transport";
 import { useSessions } from "@/lib/solidjs/use-sessions";
 import { ChatHistoryList } from "@/components/ChatHistoryList";
+import { getRoleById, getDefaultRole } from "@/lib/ai/roles";
 import type { UIMessage } from "ai";
 
 // AI Elements 组件
@@ -99,14 +100,43 @@ export default function ChatSessionPage() {
     initialMessages: initialMessages(),
   });
 
+  // 获取当前会话的角色信息
+  const currentSessionRole = createMemo(() => {
+    const sessionId = currentSessionId();
+    if (!sessionId) return null;
+    const session = sessions().find((s) => s.id === sessionId);
+    if (!session || !session.roleId) return null;
+    return getRoleById(session.roleId) || null;
+  });
+
   // 初始化或切换session时加载消息
   createEffect(() => {
     const sessionId = currentSessionId();
     if (sessionId) {
       const loadedMessages = loadSessionMessages(sessionId);
-      setInitialMessages(loadedMessages);
+      const role = currentSessionRole();
+      
+      // 如果有角色，确保系统消息存在
+      let messagesWithSystem: UIMessage[] = loadedMessages;
+      if (role) {
+        // 检查是否已有系统消息
+        const hasSystemMessage = loadedMessages.some((msg) => msg.role === "system");
+        if (!hasSystemMessage) {
+          // 在消息列表开头添加系统消息
+          messagesWithSystem = [
+            {
+              id: `system-${sessionId}`,
+              role: "system",
+              parts: [{ type: "text", text: role.systemPrompt }],
+            },
+            ...loadedMessages,
+          ];
+        }
+      }
+      
+      setInitialMessages(messagesWithSystem);
       // 使用setMessages来更新Chat实例的消息
-      setMessages(loadedMessages);
+      setMessages(messagesWithSystem);
       
       // 如果URL中有prompt参数且消息为空，自动发送
       const prompt = Array.isArray(searchParams.prompt) ? searchParams.prompt[0] : searchParams.prompt;
@@ -134,10 +164,29 @@ export default function ChatSessionPage() {
   createEffect(() => {
     const sessionId = currentSessionId();
     const msgs = messages();
+    const role = currentSessionRole();
+    
     if (sessionId && msgs.length > 0) {
+      // 确保系统消息被包含在保存的消息中
+      let messagesToSave = msgs;
+      if (role) {
+        const hasSystemMessage = msgs.some((msg) => msg.role === "system");
+        if (!hasSystemMessage) {
+          // 如果消息中没有系统消息，添加系统消息
+          messagesToSave = [
+            {
+              id: `system-${sessionId}`,
+              role: "system",
+              parts: [{ type: "text", text: role.systemPrompt }],
+            },
+            ...msgs,
+          ];
+        }
+      }
+      
       // 延迟保存，避免频繁写入
       const timer = setTimeout(() => {
-        saveSessionMessages(sessionId, msgs);
+        saveSessionMessages(sessionId, messagesToSave);
       }, 500);
       return () => clearTimeout(timer);
     }
