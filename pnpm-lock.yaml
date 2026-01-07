@@ -14,6 +14,12 @@ importers:
       '@ai-sdk/provider':
         specifier: ^3.0.0
         version: 3.0.0
+      '@ensolid/aisolid':
+        specifier: ^0.0.1
+        version: 0.0.1(ai@6.0.3(zod@4.2.1))(solid-js@1.9.10)
+      '@ensolid/radix':
+        specifier: ^0.0.0
+        version: 0.0.0(solid-js@1.9.10)
       '@ensolid/solidflow':
         specifier: ^0.0.2
         version: 0.0.2(solid-js@1.9.10)
@@ -249,6 +255,17 @@ packages:
     resolution: {integrity: sha512-Ox2kYyxy7NoXdKWdHeDEjZxClwzO4SKM8plAaVwmAJPxHMqA0rLOoAsa+hBDwRLpctf+ZRnAd/ykguuJidnaTA==}
     peerDependencies:
       solid-js: ^1.8
+
+  '@ensolid/aisolid@0.0.1':
+    resolution: {integrity: sha512-kSWeoI0Kzbq5BEo4zz449D8GkdbS/t9y3Td6nPWrKEzk5Sgq5OFDqZQjfHbO/dTCsVABbSZiPHFx39ray+9BIw==}
+    peerDependencies:
+      ai: ^6.0.0
+      solid-js: ^1.9.9
+
+  '@ensolid/radix@0.0.0':
+    resolution: {integrity: sha512-C7L7g9z6R6nudrEHyUCxiWssEc+kQ7i+SKrjZHukNECsKWX77EpU39FeLb/MWrNQYDoeOZrj6nsno8LwQ6U4uA==}
+    peerDependencies:
+      solid-js: ^1.9.9
 
   '@ensolid/solidflow@0.0.2':
     resolution: {integrity: sha512-Z+p2gR6ZaiTUbfVgNCEIBwkibHlG1x3Q6JWHu34w02C3kiXbPXJ4tjUScyx7JZ4ilAu4dmSSUomz+musHPSaOA==}
@@ -1499,6 +1516,15 @@ snapshots:
   '@corvu/utils@0.4.2(solid-js@1.9.10)':
     dependencies:
       '@floating-ui/dom': 1.7.4
+      solid-js: 1.9.10
+
+  '@ensolid/aisolid@0.0.1(ai@6.0.3(zod@4.2.1))(solid-js@1.9.10)':
+    dependencies:
+      ai: 6.0.3(zod@4.2.1)
+      solid-js: 1.9.10
+
+  '@ensolid/radix@0.0.0(solid-js@1.9.10)':
+    dependencies:
       solid-js: 1.9.10
 
   '@ensolid/solidflow@0.0.2(solid-js@1.9.10)':
