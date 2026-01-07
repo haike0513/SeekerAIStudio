@@ -17,6 +17,7 @@
     "@ensolid/aisolid": "^0.0.1",
     "@ensolid/radix": "^0.0.0",
     "@ensolid/solidflow": "^0.0.2",
+    "@ensolid/visx": "^0.0.1",
     "@kobalte/core": "^0.13.11",
     "@solid-primitives/event-listener": "^2.4.3",
     "@solid-primitives/i18n": "^2.2.1",
