@@ -1,57 +1,63 @@
 # SeekerAIStudio 技术架构
 
 ## 1. 系统概述
-SeekerAIStudio 是一个混合桌面应用程序，利用 Web 技术构建 UI，利用 Rust (Tauri) 处理系统级操作。它采用模块化架构设计，旨在实现高性能、安全性和可扩展性。
+SeekerAIStudio 采用现代化的 Web 技术栈构建，利用 `ai-sdk` 作为智能核心，实现了对本地模型和云端 API 的统一抽象。系统旨在提供低延迟、高扩展性的 Agent 编排与 AI 应用运行环境。
 
 ## 2. 技术栈
 
 ### 2.1 核心框架
-- **运行时**: [Tauri v2](https://tauri.app/) (Rust + WebView) - 提供轻量级、安全的桌面环境。
-- **前端引擎**: [SolidJS](https://www.solidjs.com/) - 高性能响应式 UI 框架。
-- **语言**: TypeScript - 用于类型安全的应用程序逻辑。
+- **Runtime**: [Tauri v2](https://tauri.app/) - 跨平台桌面运行时，负责文件系统访问、本地服务调度。
+- **Frontend**: [SolidJS](https://www.solidjs.com/) - 响应式前端框架，配合 Signals 实现高频 AI 流式输出的高效渲染。
+- **Language**: TypeScript - 全栈类型安全。
 
-### 2.2 UI 与样式
-- **样式**: [TailwindCSS v4](https://tailwindcss.com/) - 实用优先的 CSS 框架。
-- **组件原语**: 
-  - `kobalte` & `radix` (通过 `@ensolid/radix`) 用于无障碍 UI 原语。
-  - `lucide-solid` 用于图标。
-  - `class-variance-authority` (CVA) 用于组件变体管理。
-- **可视化**: 
-  - `@ensolid/solidflow` 用于基于节点的工作流编辑器。
-  - `@ensolid/visx` 用于数据可视化。
+### 2.2 AI 与逻辑层 (核心升级)
+- **SDK**: **[Vercel AI SDK](https://sdk.vercel.ai/docs)** (Core & UI)
+  - `ai`: 核心流式传输 (Streaming) 协议支持。
+  - `@ai-sdk/openai`: 标准化 OpenAI 兼容接口。
+  - `@ai-sdk/anthropic` / `@ai-sdk/mistral`: 多模型提供商支持。
+- **Local AI Bridge**: 
+  - 通过 `Ollama` 接口协议对接本地模型，由 `ai-sdk` 的 OpenAI Compatible Provider 统一驱动。
+- **Agent Capabilities**:
+  - **Tool Calling**: 利用 SDK 的 `tool` 定义能力，实现智能体对系统功能（读写文件、网络请求）的调用。
+  - **Structure Generation**: 使用 `generateObject` / `streamObject` 保证工作流节点间的数据契约。
 
-### 2.3 状态管理与数据
-- **状态 (State)**: SolidJS Signals 和 Stores 用于细粒度的响应性。
-- **数据获取**: `@tanstack/solid-query` 用于异步状态管理。
-- **存储**: `@solid-primitives/storage` 与本地存储和 Tauri 文件系统 API 交互。
-- **表单**: `@tanstack/solid-form` 用于复杂的输入处理。
-
-### 2.4 AI 与逻辑层
-- **AI 集成**: Vercel AI SDK (`ai`, `@ai-sdk/openai-compatible`) 用于标准化的 LLM 交互。
-- **工具**: `throttleit`, `nanoid` 用于性能和工具需求。
+### 2.3 数据流与状态管理
+- **Workflow State**: `@ensolid/solidflow` 维护图结构数据。
+- **Execution Context**: 运行时创建一个基于 `ai-sdk` 的执行上下文，管理 API Keys、本地服务端点地址和上下文记忆。
+- **Storage**: 基于 Tauri FileSystem 和 SQLite（可选）存储向量数据和会话历史。
 
 ## 3. 架构图
 
-### 3.1 应用程序结构
+### 3.1 智能体运行架构
 ```mermaid
 graph TD
-    A[Tauri Core (Rust)] <-->|IPC| B[WebView (SolidJS)]
-    B --> C[工作流引擎 Workflow Engine]
-    B --> D[市场界面 Marketplace Interface]
-    B --> E[设置与配置 Settings & Config]
-    C --> F[SolidFlow 渲染器]
-    C --> G[执行控制器 Execution Controller]
-    G -->|API| H[LLM 提供商]
-    D -->|Web3| I[区块链网络]
+    User[用户输入] --> UI[SolidJS 界面]
+    UI -->|配置/指令| AgentRuntime[Agent 运行时 (Tauri)]
+    
+    subgraph "AI Kernel (Powered by ai-sdk)"
+        Router[模型路由]
+        Tools[工具注册表]
+        Memory[短期记忆/Context]
+    end
+    
+    AgentRuntime --> Router
+    AgentRuntime --> Tools
+    
+    Router -->|选择 Cloud| CloudAPI[云端 API (OpenAI/Anthropic)]
+    Router -->|选择 Local| LocalLLM[本地模型 (Ollama/DeepSeek)]
+    
+    CloudAPI -->|Stream| UI
+    LocalLLM -->|Stream| UI
+    
+    Tools -->|执行结果| Router
 ```
 
-### 3.2 数据流
-1.  **用户操作**：用户与 UI 交互（例如，添加节点）。
-2.  **状态更新**：SolidJS signal 更新，触发响应性。
-3.  **持久化**：更改通过 Tauri API 或 LocalStorage 保存到本地文件系统。
-4.  **执行**：运行工作流时，“执行控制器”遍历节点，根据需要调用 AI 提供商的 API。
+### 3.2 关键模块交互
+1.  **节点执行器**: 每个工作流节点作为一个微型 Agent，通过 `ai-sdk` 发起请求。
+2.  **流式管道**: LLM 的 Token 流通过 `streamText` 直接通过 IPC 通道传输至前端组件，实现打字机效果。
+3.  **工具沙箱**: 为 Agent 提供的工具在受限的 Tauri 命令环境中运行，确保安全性（例如限制文件访问范围）。
 
-## 4. 安全与性能
-- **隔离**：Tauri 模式确保 WebView 的严格沙盒化。
-- **响应性**：SolidJS 确保最小的 DOM 更新，这对大型图形渲染至关重要。
-- **类型安全**：前端代码库的全 TypeScript 覆盖。
+## 4. 性能与安全
+- **API Key 管理**: 敏感 Key 存储在系统级安全存储中（Tauri Store Plugin），不通过网络明文传输。
+- **本地优先策略**: 默认推荐使用本地模型进行开发调试，降低 Token 成本，保护数据隐私。
+- **并发控制**: 利用 `p-queue` 或类似机制管理对本地模型的并发请求，避免显存溢出。
