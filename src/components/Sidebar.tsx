@@ -29,9 +29,12 @@ interface SidebarItem {
   children?: SidebarItem[];
 }
 
+export type SidebarMode = 'expanded' | 'collapsed' | 'minimized';
+
 interface SidebarProps {
-  isCollapsed: () => boolean;
-  setIsCollapsed: (collapsed: boolean) => void;
+  mode: SidebarMode;
+  setMode: (mode: SidebarMode) => void;
+  isCollapsed: () => boolean; // Keep for mobile and other internal logic if needed, but better to rely on mode
 }
 
 export default function Sidebar(props: SidebarProps) {
@@ -131,90 +134,126 @@ export default function Sidebar(props: SidebarProps) {
       {/* Sidebar */}
       <aside
         class={cn(
-          "relative h-screen transition-all duration-300 ease-in-out",
+          "relative transition-all duration-300 ease-in-out",
           "bg-card border-r border-border",
-          props.isCollapsed() ? "w-16" : "w-64",
+          props.mode === 'minimized' ? "w-12 h-12 rounded-full shadow-2xl border bg-card flex items-center justify-center overflow-hidden cursor-pointer hover:bg-muted" :
+          props.mode === 'collapsed' ? "w-16 shadow-2xl border-none bg-card/90 backdrop-blur-sm rounded-xl overflow-hidden" : "w-64 h-screen",
           "hidden sm:flex sm:flex-col sm:shrink-0"
         )}
+        onMouseDown={(e) => {
+            // Track start position for click detection in minimized mode
+            if (props.mode === 'minimized') {
+                 // Store coordinates on the element dataset or a transient variable if possible
+                 // Using data attributes for stateless handling in event bubbling catch
+                 const target = e.currentTarget as HTMLElement;
+                 target.dataset.startX = e.clientX.toString();
+                 target.dataset.startY = e.clientY.toString();
+            }
+        }}
+        onClick={(e) => {
+            if (props.mode === 'minimized') {
+                e.stopPropagation(); 
+                
+                // Check drag distance
+                const target = e.currentTarget as HTMLElement;
+                const startX = parseFloat(target.dataset.startX || "0");
+                const startY = parseFloat(target.dataset.startY || "0");
+                const dist = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+
+                if (dist < 5) {
+                    props.setMode('collapsed');
+                }
+            }
+        }}
       >
-        <div class="flex h-full flex-col">
-          {/* Header */}
-          <div class="flex h-16 items-center border-b border-border px-4 gap-3 min-w-0">
-            <img 
-              src="/icon.png" 
-              alt="App Icon" 
-              class={cn(
-                "h-8 w-8 shrink-0 object-contain",
-                props.isCollapsed() && "mx-auto"
-              )} 
-            />
-            <Show when={!props.isCollapsed()}>
-              <h2 class="text-lg font-semibold truncate min-w-0">{t("app.title")}</h2>
-            </Show>
-          </div>
-
-          {/* Navigation */}
-          <nav class="flex-1 overflow-y-auto space-y-1">
-            <For each={sidebarItems()}>
-              {(item) => {
-                const href = item.id === "inference" ? "/" : `/${item.id}`;
-                return (
-                  <A href={href} class="block">
-                    <Button
-                      variant="ghost"
+        <Show when={props.mode !== 'minimized'} fallback={
+             <img src="/icon.png" alt="App" class="h-8 w-8 object-contain pointer-events-none" />
+        }>
+            <div class="flex h-full flex-col">
+              {/* Header */}
+              <div class="flex h-16 items-center border-b border-border px-4 gap-3 min-w-0">
+                <button 
+                    class="cursor-pointer bg-transparent border-none p-0 outline-none flex items-center" 
+                    onClick={() => props.setMode('minimized')} 
+                    title="Minimize to Icon"
+                >
+                    <img 
+                      src="/icon.png" 
+                      alt="App Icon" 
                       class={cn(
-                        "w-full justify-start gap-3",
-                        props.isCollapsed() ? "px-2" : "px-3"
-                      )}
-                      onClick={item.onClick}
-                    >
-                      <item.icon class={cn("h-5 w-5 shrink-0", props.isCollapsed() && "mx-auto")} />
-                      <Show when={!props.isCollapsed()}>
-                        <span class="truncate">{item.label}</span>
-                      </Show>
-                    </Button>
-                  </A>
-                );
-              }}
-            </For>
-          </nav>
-
-          <Separator />
-
-          {/* Footer - Settings and Collapse Button */}
-          <div class="p-4 space-y-1">
-            <A href="/settings" class="block">
-              <Button
-                variant="ghost"
-                class={cn(
-                  "w-full justify-start gap-3",
-                  props.isCollapsed() ? "px-2" : "px-3"
-                )}
-              >
-                <Settings class={cn("h-5 w-5 shrink-0", props.isCollapsed() && "mx-auto")} />
-                <Show when={!props.isCollapsed()}>
-                  <span class="truncate">{t("app.sidebar.settings")}</span>
+                        "h-8 w-8 shrink-0 object-contain hover:scale-110 transition-transform",
+                        props.mode === 'collapsed' && "mx-auto"
+                      )} 
+                    />
+                </button>
+                <Show when={props.mode === 'expanded'}>
+                  <h2 class="text-lg font-semibold truncate min-w-0">{t("app.title")}</h2>
                 </Show>
-              </Button>
-            </A>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => props.setIsCollapsed(!props.isCollapsed())}
-              class={cn(
-                "w-full",
-                props.isCollapsed() ? "px-2" : "px-3 justify-start gap-3"
-              )}
-            >
-              <Show when={props.isCollapsed()} fallback={<ChevronLeft class="h-4 w-4" />}>
-                <ChevronRight class="h-4 w-4" />
-              </Show>
-              <Show when={!props.isCollapsed()}>
-                <span class="truncate">{t("app.sidebar.collapse")}</span>
-              </Show>
-            </Button>
-          </div>
-        </div>
+              </div>
+    
+              {/* Navigation */}
+              <nav class="flex-1 overflow-y-auto space-y-1">
+                <For each={sidebarItems()}>
+                  {(item) => {
+                    const href = item.id === "inference" ? "/" : `/${item.id}`;
+                    return (
+                      <A href={href} class="block">
+                        <Button
+                          variant="ghost"
+                          class={cn(
+                            "w-full justify-start gap-3",
+                            props.mode === 'collapsed' ? "px-2" : "px-3"
+                          )}
+                          onClick={item.onClick}
+                        >
+                          <item.icon class={cn("h-5 w-5 shrink-0", props.mode === 'collapsed' && "mx-auto")} />
+                          <Show when={props.mode === 'expanded'}>
+                            <span class="truncate">{item.label}</span>
+                          </Show>
+                        </Button>
+                      </A>
+                    );
+                  }}
+                </For>
+              </nav>
+    
+              <Separator />
+    
+              {/* Footer - Settings and Collapse Button */}
+              <div class="p-4 space-y-1">
+                <A href="/settings" class="block">
+                  <Button
+                    variant="ghost"
+                    class={cn(
+                      "w-full justify-start gap-3",
+                      props.mode === 'collapsed' ? "px-2" : "px-3"
+                    )}
+                  >
+                    <Settings class={cn("h-5 w-5 shrink-0", props.mode === 'collapsed' && "mx-auto")} />
+                    <Show when={props.mode === 'expanded'}>
+                      <span class="truncate">{t("app.sidebar.settings")}</span>
+                    </Show>
+                  </Button>
+                </A>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => props.setMode(props.mode === 'expanded' ? 'collapsed' : 'expanded')}
+                  class={cn(
+                    "w-full",
+                    props.mode === 'collapsed' ? "px-2" : "px-3 justify-start gap-3"
+                  )}
+                >
+                  <Show when={props.mode === 'collapsed'} fallback={<ChevronLeft class="h-4 w-4" />}>
+                    <ChevronRight class="h-4 w-4" />
+                  </Show>
+                  <Show when={props.mode === 'expanded'}>
+                    <span class="truncate">{t("app.sidebar.collapse")}</span>
+                  </Show>
+                </Button>
+              </div>
+            </div>
+        </Show>
       </aside>
 
       {/* Mobile sidebar overlay */}
