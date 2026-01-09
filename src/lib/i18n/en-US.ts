@@ -6,6 +6,7 @@ export default {
       chat: "AI Chat",
       novel: "Novel",
       comic: "Comic Creator",
+      audio: "Audio Studio",
       settings: "Settings",
       models: "Model Management",
       history: "History",

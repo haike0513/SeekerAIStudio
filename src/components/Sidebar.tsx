@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Book,
-  Palette
+  Palette,
+  Music
 } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -74,6 +75,14 @@ export default function Sidebar(props: SidebarProps) {
       id: "comic",
       icon: Palette,
       label: t("app.sidebar.comic"),
+      onClick: () => {
+        setIsMobileOpen(false);
+      },
+    },
+    {
+      id: "audio",
+      icon: Music,
+      label: t("app.sidebar.audio"),
       onClick: () => {
         setIsMobileOpen(false);
       },

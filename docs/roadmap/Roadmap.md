@@ -22,6 +22,7 @@ gantt
     section 阶段 3: 应用化工场 (App Factory)
     AIGC 小说创作助手 (Novel Agent)   :        task_novel, 2026-04-15, 2026-06-01
     AIGC 漫画创作助手 (Comic Agent)   :        task_comic, 2026-05-15, 2026-07-01
+    AIGC 音频创作助手 (Audio Agent)   :        task_audio, 2026-06-15, 2026-08-01
     工作流封装为 App                  :        task7, 2026-05-01, 2026-06-15
     多 Agent 协作编排                 :        task8, 2026-06-01, 2026-07-15
     Web3 资产发行 (Agent NFT)         :        task9, 2026-07-01, 2026-08-30
@@ -56,6 +57,10 @@ gantt
     - [ ] 剧本转分镜 (Script to Storyboard)
     - [ ] 角色一致性控制 (Character Consistency / LoRA)
     - [ ] 漫画面板编辑器 (Panel Editor with Image Gen)
+- [ ] **AIGC 音频助手 (Vertical App)**:
+    - [ ] 多角色语音合成 (Multi-Speaker TTS)
+    - [ ] 智能音效生成 (Text-to-SFX)
+    - [ ] 背景音乐生成 (Text-to-Music)
 - [ ] **Agent 协作**: 允许一个工作流调用另一个工作流（Sub-flow Agent）。
 - [ ] **市场集成**: 允许交易配置好的 Agent 包（包含 Prompt, Tools 配置, 模型偏好）。
 

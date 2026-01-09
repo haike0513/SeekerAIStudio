@@ -6,6 +6,7 @@ export default {
       chat: "AI 对话",
       novel: "小说",
       comic: "漫画制作",
+      audio: "音频工坊",
       settings: "设置",
       models: "模型管理",
       history: "历史记录",
