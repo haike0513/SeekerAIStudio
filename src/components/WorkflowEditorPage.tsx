@@ -11,7 +11,6 @@ import {
   applyNodeChanges,
   Controls,
   Flow,
-  Handle,
   Panel,
 } from "@ensolid/solidflow";
 import type {
@@ -20,7 +19,7 @@ import type {
   EdgeChange,
   Node,
   NodeChange,
-  NodeComponentProps,
+
   FlowInstance,
 } from "@ensolid/solidflow";
 import { Button } from "@/components/ui/button";
@@ -34,190 +33,37 @@ import {
   Minimize2,
   Trash2,
   Filter,
-  X
+  X,
+  Settings,
+  Code,
+  GitBranch,
+  Globe,
+  Clock,
+  Image as ImageIcon,
+  Keyboard,
+  CheckCircle,
 } from "lucide-solid";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { getActiveProvider } from "@/lib/store/ai-config";
+import { createOpenAI } from '@ai-sdk/openai';
+import { streamText } from 'ai';
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-// --- Node Components ---
+import { AgentNode } from "./nodes/AgentNode";
+import { TaskNode } from "./nodes/TaskNode";
+import { TriggerNode } from "./nodes/TriggerNode";
+import { ScriptNode } from "./nodes/ScriptNode";
+import { ConditionNode } from "./nodes/ConditionNode";
+import { RequestNode } from "./nodes/RequestNode";
+import { DelayNode } from "./nodes/DelayNode";
+import { InputNode } from "./nodes/InputNode";
+import { ImageGenNode } from "./nodes/ImageGenNode";
+import { OutputNode } from "./nodes/OutputNode";
 
-// Agent Node: Represents an AI entity
-const AgentNode: Component<NodeComponentProps> = (props) => {
-  return (
-    <div
-      style={{ width: "180px", height: "auto" }}
-      class={`relative group min-w-[180px] rounded-xl bg-white shadow-lg transition-all hover:shadow-xl ${
-        props.node.data?.executionStatus === 'running' ? 'ring-2 ring-indigo-500 ring-offset-2' :
-        props.node.data?.executionStatus === 'completed' ? 'ring-2 ring-green-500 ring-offset-2' :
-        props.node.data?.executionStatus === 'error' ? 'ring-2 ring-red-500 ring-offset-2' : ''
-      }`}
-    >
-      {/* Glassmorphism Header */}
-      <div class="rounded-t-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-2">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">🤖</span>
-          <span class="text-xs font-bold uppercase tracking-wider text-white">
-            Agent
-          </span>
-        </div>
-      </div>
 
-      {/* Content */}
-      <div class="p-4">
-        <div class="text-sm font-bold text-gray-800">
-          {props.node.data?.label || "New Agent"}
-        </div>
-        <div class="mt-1 text-xs text-gray-500">
-          {props.node.data?.role || "Assistant"}
-        </div>
-
-        <div class="mt-3 flex gap-1 flex-wrap">
-          <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-[10px] text-indigo-600 font-medium">
-            {props.node.data?.model || "GPT-4"}
-          </span>
-          <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-[10px] text-indigo-600 font-medium">
-            Memory
-          </span>
-        </div>
-      </div>
-
-      {/* Handles */}
-      <Handle
-        type="target"
-        position="left"
-        style={{
-          width: "12px",
-          height: "12px",
-          background: "#6366f1",
-          border: "2px solid white",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-left"
-      />
-      <Handle
-        type="source"
-        position="right"
-        style={{
-          width: "12px",
-          height: "12px",
-          background: "#6366f1",
-          border: "2px solid white",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-right"
-      />
-    </div>
-  );
-};
-
-// Task Node: Represents a unit of work
-const TaskNode: Component<NodeComponentProps> = (props) => {
-  return (
-    <div
-      style={{ width: "220px", height: "auto" }}
-      class={`relative min-w-[220px] rounded-xl bg-white shadow-lg transition-all hover:shadow-xl ${
-        props.node.data?.executionStatus === 'running' ? 'ring-2 ring-emerald-500 ring-offset-2' :
-        props.node.data?.executionStatus === 'completed' ? 'ring-2 ring-green-500 ring-offset-2' :
-        props.node.data?.executionStatus === 'error' ? 'ring-2 ring-red-500 ring-offset-2' : ''
-      }`}
-    >
-      <div class="rounded-t-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">📋</span>
-          <span class="text-xs font-bold uppercase tracking-wider text-white">
-            Task
-          </span>
-        </div>
-      </div>
-      <div class="p-4 space-y-2">
-        <div class="text-sm font-bold text-gray-800">
-          {props.node.data?.label || "New Task"}
-        </div>
-        <p class="text-xs text-gray-500 leading-relaxed line-clamp-2">
-          {props.node.data?.description ||
-            "Define the task objectives and expected output..."}
-        </p>
-      </div>
-      <Handle
-        type="target"
-        position="top"
-        style={{
-          width: "12px",
-          height: "12px",
-          background: "#10b981",
-          border: "2px solid white",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-top"
-      />
-      <Handle
-        type="source"
-        position="bottom"
-        style={{
-          width: "12px",
-          height: "12px",
-          background: "#10b981",
-          border: "2px solid white",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-bottom"
-      />
-    </div>
-  );
-};
-
-// Trigger Node: Start of workflow
-const TriggerNode: Component<NodeComponentProps> = (props) => {
-  return (
-    <div
-      style={{ width: "64px", height: "64px" }}
-      class="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-lg ring-4 ring-orange-100 transition-transform hover:scale-110"
-    >
-      <span class="text-2xl">🚀</span>
-      <Handle
-        type="source"
-        position="right"
-        style={{
-          width: "16px",
-          height: "16px",
-          background: "#f97316",
-          border: "4px solid white",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-right"
-      />
-    </div>
-  );
-};
-
-// Tool Node: External tools
-const ToolNode: Component<NodeComponentProps> = (props) => {
-  return (
-    <div
-      style={{ width: "140px", height: "auto" }}
-      class="min-w-[140px] rounded-lg bg-gray-50 shadow-sm p-2 flex items-center gap-2"
-    >
-      <div class="w-8 h-8 rounded bg-white border flex items-center justify-center text-lg">
-        🛠️
-      </div>
-      <div>
-        <div class="text-xs font-bold text-gray-700">
-          {props.node.data?.label || "Tool"}
-        </div>
-        <div class="text-[10px] text-gray-500">External Capability</div>
-      </div>
-      <Handle
-        type="target"
-        position="left"
-        style={{
-          background: "#9ca3af",
-          width: "12px",
-          height: "12px",
-          "border-radius": "50%",
-        }}
-        class="react-flow__handle react-flow__handle-left"
-      />
-    </div>
-  );
-};
 
 // --- Main Page ---
 
@@ -239,11 +85,14 @@ export const WorkflowEditorPage: Component = () => {
   const [selectedNodeId, setSelectedNodeId] = createSignal<string | null>(null);
   const [isLocked, setIsLocked] = createSignal(false);
   const [isLoaded, setIsLoaded] = createSignal(false); // 标记是否已加载完成
+  const [showSettings, setShowSettings] = createSignal(false);
 
   // --- Execution State ---
   const [isRunning, setIsRunning] = createSignal(false);
   const [showOutputPanel, setShowOutputPanel] = createSignal(false);
   const [isOutputExpanded, setIsOutputExpanded] = createSignal(false);
+  const [runResult, setRunResult] = createSignal<string | null>(null); // For Output Node
+  const [showRunSummary, setShowRunSummary] = createSignal(false);
   
   interface LogEntry {
     id: string;
@@ -284,10 +133,18 @@ export const WorkflowEditorPage: Component = () => {
       return;
     }
 
+    const providerConfig = getActiveProvider();
+    if (!providerConfig) {
+      addLog('error', 'No active AI provided configured. Please check settings.');
+      setShowSettings(true);
+      return;
+    }
+
     setIsRunning(true);
     setShowOutputPanel(true);
     setLogs([]);
-    addLog('info', 'Starting workflow execution...');
+    setRunResult(null);
+    addLog('info', `Starting workflow execution with provider: ${providerConfig.name}...`);
 
     // Helper to update status safely
     const setNodeStatus = (id: string, status: 'running' | 'completed' | 'error' | undefined) => {
@@ -297,52 +154,251 @@ export const WorkflowEditorPage: Component = () => {
     // Reset status
     setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, executionStatus: undefined } })));
 
-    // Simple BFS/Topological Sort Execution Simulation
-    try {
+    // Create AI Client based on config
+    const openai = createOpenAI({
+      baseURL: providerConfig.baseUrl,
+      apiKey: providerConfig.apiKey || 'not-needed-for-ollama',
+      // For localhost/custom domains in browser environment
+      fetch: window.fetch.bind(window) 
+    });
+
+     try {
       // Find trigger nodes
-      const startNodes = nodes().filter(n => n.type === 'trigger');
-      
+      const startNodes = nodes().filter((n) => n.type === "trigger");
+
       if (startNodes.length === 0) {
-        addLog('warn', 'No trigger node found. Please add a "Start" node.');
+        addLog("warn", 'No trigger node found. Please add a "Start" node.');
         setIsRunning(false);
         return;
       }
 
       const queue = [...startNodes];
       const visited = new Set<string>();
+      // Context to pass data between nodes
+      const context: Record<string, any> = {
+         // Global helpers
+         timestamp: Date.now(),
+      }; 
+
+      const getInputs = (nodeId: string) => {
+          const incomingEdges = edges().filter(e => e.target === nodeId);
+          // Return a map of { sourceNodeId: output }
+          // Or simpler: just the text content joined
+          return incomingEdges.map(e => context[e.source]).filter(v => v !== undefined);
+      };
+
+      const getPrevOutput = (nodeId: string) => {
+         const inputs = getInputs(nodeId);
+         if (inputs.length === 0) return "";
+         if (inputs.length === 1) return inputs[0];
+         return typeof inputs[inputs.length - 1] === 'string' ? inputs[inputs.length - 1] : JSON.stringify(inputs[inputs.length - 1]);
+      };
+      
+      let stepCount = 0;
+      const MAX_STEPS = 50; // Prevent infinite loops
 
       while (queue.length > 0 && isRunning()) {
+        if (stepCount++ > MAX_STEPS) {
+           addLog("error", "Max execution steps exceeded. Possible infinite loop.");
+           break;
+        }
+
         const currentNode = queue.shift()!;
-        if (visited.has(currentNode.id)) continue;
-        visited.add(currentNode.id);
-
-        // Execute Node
-        setNodeStatus(currentNode.id, 'running');
-        addLog('info', `Executing node: ${currentNode.data.label || currentNode.id}`, currentNode.id);
         
-        // Simulate async work
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Loop detection: allow re-visiting for loops, but maybe we need smarter handling.
+        // For DAGs, we usually wait for all inputs. For now, simple BFS.
 
-        if (!isRunning()) break;
+        setNodeStatus(currentNode.id, "running");
+        addLog("info", `Running ${currentNode.type}: ${currentNode.data.label}`, currentNode.id);
 
-        setNodeStatus(currentNode.id, 'completed');
-        addLog('success', `Node completed: ${currentNode.data.label}`, currentNode.id);
+        try {
+          let output: any = null;
+          let nextNodeIds: string[] = [];
 
-        // Find next nodes
-        const outgoingEdges = edges().filter(e => e.source === currentNode.id);
-        for (const edge of outgoingEdges) {
-          const targetNode = nodes().find(n => n.id === edge.target);
-          if (targetNode) {
-            queue.push(targetNode);
+          // --- EXECUTION SWITCH ---
+          switch (currentNode.type) {
+            case "agent": {
+               const model = currentNode.data.model || "gpt-4o";
+               const inputs = getInputs(currentNode.id).map(i => typeof i === 'string' ? i : JSON.stringify(i)).join("\n---\n");
+               const prompt = inputs 
+                  ? `Context:\n${inputs}\n\nTask: ${currentNode.data.label}`
+                  : `Task: ${currentNode.data.label}`;
+              
+               if (currentNode.data.systemPrompt) {
+                  // If explicit system prompt
+               }
+
+               const result = await streamText({
+                  model: openai(model),
+                  messages: [
+                      { role: "system", content: currentNode.data.role || "You are a helpful assistant." },
+                      { role: "user", content: prompt }
+                  ],
+                });
+
+                let fullText = "";
+                for await (const delta of result.textStream) {
+                   if (!isRunning()) break;
+                   fullText += delta;
+                }
+                output = fullText;
+                break;
+            }
+
+            case "script": {
+               // Safe-ish eval using new Function
+               const code = currentNode.data.code || "return 'No code provided';";
+               const prev = getPrevOutput(currentNode.id);
+               // Exposed variables: input, context, console (mocked)
+               const scriptFunc = new Function('input', 'context', 'console', `
+                  try { 
+                    ${code} 
+                  } catch(e) { return "Script Error: " + e.message; }
+               `);
+               
+               const mockConsole = {
+                  log: (msg: string) => addLog("info", `[Script Log]: ${msg}`, currentNode.id)
+               };
+               
+               output = scriptFunc(prev, context, mockConsole);
+               addLog("success", `Script executed. Output type: ${typeof output}`, currentNode.id);
+               break;
+            }
+
+            case "condition": {
+               const expr = currentNode.data.expression || "true";
+               const input = getPrevOutput(currentNode.id);
+               // Simple eval for condition
+               // e.g. "input.includes('error')"
+               const checkFunc = new Function('input', `return ${expr}`);
+               let isTrue = false;
+               try {
+                  isTrue = !!checkFunc(input);
+               } catch (e) {
+                  addLog("error", `Condition failed: ${e}`, currentNode.id);
+               }
+               
+               addLog("info", `Condition checked: ${isTrue}`, currentNode.id);
+               
+               // Route based on handle IDs
+               const outEdges = edges().filter(e => e.source === currentNode.id);
+               const trueEdges = outEdges.filter(e => e.sourceHandle === 'true');
+               const falseEdges = outEdges.filter(e => e.sourceHandle === 'false');
+               
+               if (isTrue) nextNodeIds = trueEdges.map(e => e.target);
+               else nextNodeIds = falseEdges.map(e => e.target);
+               
+               // Skip standard next node finding
+               output = isTrue; // store for debugging
+               break;
+            }
+            
+            case "request": {
+                const url = currentNode.data.url;
+                if (!url) throw new Error("URL is required");
+                const method = currentNode.data.method || "GET";
+                const body = currentNode.data.body ? JSON.parse(currentNode.data.body) : undefined;
+                
+                addLog("info", `${method} ${url}`, currentNode.id);
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+                const json = await res.json();
+                output = json;
+                break;
+            }
+
+            case "delay": {
+                const duration = parseInt(currentNode.data.duration || "1000", 10);
+                addLog("info", `Waiting for ${duration}ms...`, currentNode.id);
+                await new Promise(r => setTimeout(r, duration));
+                output = "Delayed";
+                break;
+            }
+
+            case "input": {
+                // For now, using window.prompt as a simple blocking input
+                const promptText = currentNode.data.prompt || "Please enter a value:";
+                // In a real app, this should be a non-blocking UI modal, which pauses execution loop
+                // But since our loop is async, we can yield. 
+                // However, window.prompt is blocking which is easiest for MVP 
+                const userInput = window.prompt(promptText, "");
+                if (userInput === null) {
+                   throw new Error("User cancelled input");
+                }
+                output = userInput;
+                addLog("success", `User input received: ${userInput}`, currentNode.id);
+                break;
+            }
+            
+            case "image-gen": {
+               // Mock Image Generation
+               const prompt = currentNode.data.prompt;
+               if (!prompt) throw new Error("Prompt is required");
+               
+               addLog("info", `Generating image for: "${prompt}"...`, currentNode.id);
+               // Simulate API call delay
+               await new Promise(r => setTimeout(r, 2000));
+               
+               // Return a placeholder image URL for now
+               const mockImageUrl = `https://placehold.co/600x400?text=${encodeURIComponent(prompt.substring(0, 20))}`;
+               output = mockImageUrl;
+               addLog("success", "Image generated successfully", currentNode.id, { url: mockImageUrl });
+               break;
+            }
+
+            case "output": {
+               const prev = getPrevOutput(currentNode.id);
+               setRunResult(typeof prev === 'string' ? prev : JSON.stringify(prev, null, 2));
+               addLog("success", "Final Output reached!", currentNode.id);
+               // We don't stop here, but usually output node is a leaf
+               output = prev;
+               break;
+            }
+            
+            default: // trigger, task, etc
+               await new Promise(r => setTimeout(r, 200));
+               output = currentNode.data.label;
           }
+          
+          if (!isRunning()) break;
+          
+          context[currentNode.id] = output;
+          updateNodeData(currentNode.id, { lastOutput: typeof output === 'object' ? JSON.stringify(output) : output });
+          setNodeStatus(currentNode.id, "completed");
+
+          // Standard flow: find next nodes if not already handled (like by Condition)
+          if (currentNode.type !== "condition") {
+             const outgoingEdges = edges().filter((e) => e.source === currentNode.id);
+             for (const edge of outgoingEdges) {
+               nextNodeIds.push(edge.target);
+             }
+          }
+          
+          // Add next nodes to queue
+          for (const nid of nextNodeIds) {
+             const node = nodes().find(n => n.id === nid);
+             if (node) queue.push(node);
+          }
+
+        } catch (nodeError: any) {
+            setNodeStatus(currentNode.id, "error");
+            addLog("error", `Failed: ${nodeError.message}`, currentNode.id);
+            // Stop on error? 
+            // setIsRunning(false); break; 
         }
       }
 
       if (isRunning()) {
-        addLog('success', 'Workflow execution completed successfully.');
+        addLog("success", "Workflow execution completed successfully.");
+        if (runResult()) {
+            setShowRunSummary(true);
+        }
       }
     } catch (e: any) {
-      addLog('error', `Execution failed: ${e.message}`);
+      addLog("error", `Execution failed: ${e.message}`);
     } finally {
       setIsRunning(false);
     }
@@ -481,10 +537,17 @@ export const WorkflowEditorPage: Component = () => {
     let data: any = { label: `New ${type}` };
 
     if (type === "agent")
-      data = { label: "New Agent", role: "Assistant" };
-    if (type === "task")
-      data = { label: "New Task", description: "Task description..." };
-    if (type === "tool") data = { label: "New Tool", description: "Tool..." };
+      data = { label: "New Agent", role: "Assistant", model: "gpt-4o" };
+    if (type === "script")
+      data = { label: "Transform Data", code: "return input.toUpperCase();" };
+    if (type === "condition")
+      data = { label: "Check Input", expression: "Number(input) > 0" };
+    if (type === "request")
+      data = { label: "Fetch API", method: "GET", url: "https://jsonplaceholder.typicode.com/todos/1" };
+    if (type === "delay") data = { label: "Wait", duration: "1000" };
+    if (type === "input") data = { label: "User Input", prompt: "Please enter data..." };
+    if (type === "image-gen") data = { label: "AI Art", prompt: "A futuristic city...", size: "1024x1024" };
+    if (type === "output") data = { label: "Show Result" };
     if (type === "trigger") data = { label: "Start" };
 
     setNodes((nds) =>
@@ -604,6 +667,10 @@ export const WorkflowEditorPage: Component = () => {
           />
         </div>
         <div class="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} title="AI Settings">
+               <Settings class="h-5 w-5 text-gray-600" />
+          </Button>
+          <div class="w-px h-6 bg-gray-200 mx-2"></div>
           <Button variant="outline" size="sm" onClick={saveWorkflow}>
             保存
           </Button>
@@ -643,8 +710,14 @@ export const WorkflowEditorPage: Component = () => {
           nodeTypes={{
             agent: AgentNode,
             task: TaskNode,
+            script: ScriptNode,
+            condition: ConditionNode,
+            request: RequestNode,
             trigger: TriggerNode,
-            tool: ToolNode,
+            delay: DelayNode,
+            input: InputNode,
+            "image-gen": ImageGenNode,
+            output: OutputNode,
           }}
           fitView
         >
@@ -744,7 +817,189 @@ export const WorkflowEditorPage: Component = () => {
             </div>
           </Show>
 
-          {/* Hamburger Menu Panel */}
+          <SettingsDialog open={showSettings()} onOpenChange={setShowSettings} />
+
+          {/* RIGHT PROPERTY PANEL */}
+          <Show when={selectedNode()}>
+            {(node) => (
+              <div class="absolute top-4 right-4 w-72 bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col max-h-[85vh] overflow-hidden z-20 animate-in slide-in-from-right-4 duration-200">
+                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                   <div class="flex items-center gap-2">
+                     <span class="font-semibold text-sm text-gray-800">Properties</span>
+                     <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                       {node().type}
+                     </span>
+                   </div>
+                   <Button variant="ghost" size="icon" class="h-6 w-6" onClick={() => setSelectedNodeId(null)}>
+                     <X class="h-4 w-4" />
+                   </Button>
+                </div>
+                
+                <div class="p-4 space-y-4 overflow-y-auto flex-1">
+                   <div class="space-y-1">
+                      <Label class="text-xs">Label</Label>
+                      <input 
+                        class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={node().data.label}
+                        onInput={(e) => updateNodeData(node().id, { label: e.currentTarget.value })}
+                      />
+                   </div>
+
+                   {/* Agent Specific */}
+                   <Show when={node().type === 'agent'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Model</Label>
+                        <Select 
+                           value={node().data.model} 
+                           onChange={(v) => updateNodeData(node().id, { model: v })}
+                           options={["gpt-4o", "gpt-3.5-turbo", "llama3"]} 
+                           itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                        >
+                           <SelectTrigger class="w-full">
+                              <SelectValue<string>>{state => state.selectedOption()}</SelectValue>
+                           </SelectTrigger>
+                           <SelectContent />
+                        </Select>
+                      </div>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Role / System Prompt</Label>
+                        <Textarea 
+                          value={node().data.role}
+                          class="min-h-[100px] font-sans text-xs"
+                          onInput={(e) => updateNodeData(node().id, { role: e.currentTarget.value })}
+                        />
+                      </div>
+                   </Show>
+
+                   {/* Script Specific */}
+                   <Show when={node().type === 'script'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">JavaScript Code</Label>
+                         <p class="text-[10px] text-gray-400 mb-1">Available vars: <code>input</code>, <code>context</code></p>
+                        <Textarea 
+                          value={node().data.code}
+                          class="min-h-[150px] font-mono text-xs bg-slate-50"
+                          onInput={(e) => updateNodeData(node().id, { code: e.currentTarget.value })}
+                        />
+                      </div>
+                   </Show>
+                   
+                   {/* Condition Specific */}
+                   <Show when={node().type === 'condition'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Expression (JS)</Label>
+                        <p class="text-[10px] text-gray-400 mb-1">Return true/false based on <code>input</code></p>
+                        <input 
+                          class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                          value={node().data.expression}
+                          onInput={(e) => updateNodeData(node().id, { expression: e.currentTarget.value })}
+                        />
+                      </div>
+                   </Show>
+
+                   {/* Request Specific */}
+                   <Show when={node().type === 'request'}>
+                      <div class="space-y-1">
+                         <Label class="text-xs">Method</Label>
+                         <Select 
+                           value={node().data.method} 
+                           onChange={(v) => updateNodeData(node().id, { method: v })}
+                           options={["GET", "POST", "PUT", "DELETE"]} 
+                           itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                        >
+                           <SelectTrigger class="w-full">
+                              <SelectValue<string>>{state => state.selectedOption()}</SelectValue>
+                           </SelectTrigger>
+                           <SelectContent />
+                        </Select>
+                      </div>
+                      <div class="space-y-1">
+                        <Label class="text-xs">URL</Label>
+                        <input 
+                          class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={node().data.url}
+                          onInput={(e) => updateNodeData(node().id, { url: e.currentTarget.value })}
+                        />
+                      </div>
+                      <Show when={node().data.method !== 'GET'}>
+                        <div class="space-y-1">
+                            <Label class="text-xs">Body (JSON)</Label>
+                            <Textarea 
+                            value={node().data.body}
+                            class="min-h-[100px] font-mono text-xs"
+                            placeholder="{}"
+                            onInput={(e) => updateNodeData(node().id, { body: e.currentTarget.value })}
+                            />
+                        </div>
+                      </Show>
+                   </Show>
+
+                   {/* Delay Specific */}
+                   <Show when={node().type === 'delay'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Duration (ms)</Label>
+                        <input 
+                          type="number"
+                          class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={node().data.duration}
+                          onInput={(e) => updateNodeData(node().id, { duration: e.currentTarget.value })}
+                        />
+                      </div>
+                   </Show>
+
+                   {/* Input Specific */}
+                   <Show when={node().type === 'input'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Prompt Message</Label>
+                        <Textarea 
+                          value={node().data.prompt}
+                          class="min-h-[80px] font-sans text-xs"
+                          placeholder="What do you want to ask the user?"
+                          onInput={(e) => updateNodeData(node().id, { prompt: e.currentTarget.value })}
+                        />
+                      </div>
+                   </Show>
+
+                   {/* Image Gen Specific */}
+                   <Show when={node().type === 'image-gen'}>
+                      <div class="space-y-1">
+                        <Label class="text-xs">Image Prompt</Label>
+                        <Textarea 
+                          value={node().data.prompt}
+                          class="min-h-[80px] font-sans text-xs"
+                          placeholder="Describe the image..."
+                          onInput={(e) => updateNodeData(node().id, { prompt: e.currentTarget.value })}
+                        />
+                      </div>
+                      <div class="space-y-1">
+                         <Label class="text-xs">Size</Label>
+                         <Select 
+                           value={node().data.size} 
+                           onChange={(v) => updateNodeData(node().id, { size: v })}
+                           options={["256x256", "512x512", "1024x1024"]} 
+                           itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                        >
+                           <SelectTrigger class="w-full">
+                              <SelectValue<string>>{state => state.selectedOption()}</SelectValue>
+                           </SelectTrigger>
+                           <SelectContent />
+                        </Select>
+                      </div>
+                   </Show>
+
+                   {/* Debug Output */}
+                   <div class="pt-4 border-t mt-4">
+                      <Label class="text-xs text-gray-500 mb-1 block">Last Execution Output</Label>
+                      <div class="bg-gray-100 p-2 rounded text-[10px] font-mono max-h-32 overflow-y-auto break-all">
+                        {node().data.lastOutput || "No output yet"}
+                      </div>
+                   </div>
+                </div>
+              </div>
+            )}
+          </Show>
+
+              {/* Hamburger Menu Panel */}
           <Panel position="top-left" class="m-4">
             <div class="relative">
               <Button
@@ -1011,136 +1266,106 @@ export const WorkflowEditorPage: Component = () => {
                   <path d="m10 8 6 4-6 4V8z" />
                 </svg>
               </div>
+
+               <div class="w-px h-6 bg-gray-200 mx-1"></div>
+
+              {/* Script Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Script Node"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "script")}
+              >
+                  <Code class="h-4 w-4" />
+              </div>
+
+              {/* Condition Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Condition Node"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "condition")}
+              >
+                  <GitBranch class="h-4 w-4" />
+              </div>
+
+              {/* Request Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Request Node"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "request")}
+              >
+                  <Globe class="h-4 w-4" />
+              </div>
+
+               <div class="w-px h-6 bg-gray-200 mx-1"></div>
+
+               {/* Delay Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Delay Node"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "delay")}
+              >
+                  <Clock class="h-4 w-4" />
+              </div>
+
+               {/* Input Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Human Input"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "input")}
+              >
+                  <Keyboard class="h-4 w-4" />
+              </div>
+
+              {/* Image Gen Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="AI Drawing"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "image-gen")}
+              >
+                  <ImageIcon class="h-4 w-4" />
+              </div>
+
+               {/* Output Node Icon */}
+              <div
+                class="p-2 rounded-lg hover:bg-gray-100 text-gray-700 cursor-grab active:cursor-grabbing relative group transition-colors"
+                title="Final Output"
+                draggable={true}
+                onDragStart={(e) => onDragStart(e, "output")}
+              >
+                  <CheckCircle class="h-4 w-4" />
+              </div>
+
             </div>
           </Panel>
+
+          {/* RUN SUMMARY DIALOG */}
+          <Dialog open={showRunSummary()} onOpenChange={setShowRunSummary}>
+              <DialogContent>
+                  <DialogHeader>
+                      <DialogTitle>Workflow Complete</DialogTitle>
+                      <DialogDescription>
+                          The workflow finished successfully. Here is the final output from the Output Node.
+                      </DialogDescription>
+                  </DialogHeader>
+                  <div class="p-4 bg-slate-50 rounded-md border border-slate-200 mt-2 max-h-[300px] overflow-y-auto">
+                      <pre class="text-xs font-mono whitespace-pre-wrap break-all text-slate-800">
+                          {runResult()}
+                      </pre>
+                  </div>
+                  <DialogFooter>
+                      <Button onClick={() => setShowRunSummary(false)}>Close</Button>
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
         </Flow>
 
-        {/* Property Panel Sidebar */}
-        <Show when={selectedNode()}>
-          {(node) => (
-            <div class="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl overflow-y-auto z-40 transition-transform duration-200 ease-in-out">
-              <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <div class="flex items-center gap-2">
-                  <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                    <Show when={node().type === "agent"}>🤖</Show>
-                    <Show when={node().type === "task"}>📋</Show>
-                    <Show when={node().type === "tool"}>🛠️</Show>
-                    <Show when={node().type === "trigger"}>🚀</Show>
-                  </div>
-                  <div>
-                    <h2 class="text-sm font-bold text-gray-900 capitalize">
-                      {node().type} 属性
-                    </h2>
-                    <p class="text-[10px] text-gray-500 font-mono">
-                      {node().id}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="h-8 w-8 text-gray-400 hover:text-gray-700"
-                  onClick={() => setSelectedNodeId(null)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </Button>
-              </div>
 
-              <div class="p-4 space-y-4">
-                {/* Common Fields */}
-                <div class="space-y-1.5">
-                  <label class="text-xs font-semibold text-gray-700">标签</label>
-                  <Input
-                    type="text"
-                    value={node().data?.label || ""}
-                    onInput={(e) =>
-                      updateNodeData(node().id, { label: e.currentTarget.value })
-                    }
-                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-shadow"
-                  />
-                </div>
-
-                {/* Agent Specific */}
-                <Show when={node().type === "agent"}>
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700">角色</label>
-                    <Input
-                      type="text"
-                      value={node().data?.role || ""}
-                      onInput={(e) =>
-                        updateNodeData(node().id, { role: e.currentTarget.value })
-                      }
-                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-shadow"
-                    />
-                  </div>
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700">模型</label>
-                    <select
-                      value={node().data?.model || "GPT-4"}
-                      onChange={(e) =>
-                        updateNodeData(node().id, { model: e.currentTarget.value })
-                      }
-                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-shadow bg-white"
-                    >
-                      <option value="GPT-4">GPT-4</option>
-                      <option value="GPT-3.5">GPT-3.5</option>
-                      <option value="Claude-3">Claude 3</option>
-                      <option value="Mistral">Mistral Large</option>
-                    </select>
-                  </div>
-                </Show>
-
-                {/* Task Specific */}
-                <Show when={node().type === "task"}>
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-gray-700">描述</label>
-                    <textarea
-                      value={node().data?.description || ""}
-                      onInput={(e) =>
-                        updateNodeData(node().id, {
-                          description: e.currentTarget.value,
-                        })
-                      }
-                      rows={4}
-                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-shadow resize-none"
-                    />
-                  </div>
-                </Show>
-
-                <div class="pt-4 border-t border-gray-100">
-                  <h3 class="text-xs font-bold text-gray-900 mb-2">元数据</h3>
-                  <div class="grid grid-cols-2 gap-2">
-                    <div class="bg-gray-50 p-2 rounded border border-gray-100">
-                      <div class="text-[10px] text-gray-400">位置 X</div>
-                      <div class="text-xs font-mono text-gray-700">
-                        {Math.round(node().position.x)}
-                      </div>
-                    </div>
-                    <div class="bg-gray-50 p-2 rounded border border-gray-100">
-                      <div class="text-[10px] text-gray-400">位置 Y</div>
-                      <div class="text-xs font-mono text-gray-700">
-                        {Math.round(node().position.y)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </Show>
       </div>
     </div>
   );
