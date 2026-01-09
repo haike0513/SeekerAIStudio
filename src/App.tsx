@@ -19,7 +19,8 @@ function Layout(props: { children: any }) {
   const location = useLocation();
   const isFullScreenPage = () => 
     (location.pathname.startsWith("/workflow/") && location.pathname !== "/workflow") ||
-    (location.pathname.startsWith("/novel/") && location.pathname !== "/novel");
+    (location.pathname.startsWith("/novel/") && location.pathname !== "/novel") ||
+    (location.pathname.startsWith("/comic/") && location.pathname !== "/comic");
 
   return (
     <div class="flex h-screen w-screen overflow-hidden bg-background">

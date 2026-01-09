@@ -5,6 +5,7 @@ export default {
       inference: "Inference",
       chat: "AI Chat",
       novel: "Novel",
+      comic: "Comic Creator",
       settings: "Settings",
       models: "Model Management",
       history: "History",

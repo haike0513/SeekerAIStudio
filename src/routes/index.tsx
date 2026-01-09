@@ -49,6 +49,16 @@ export const routes: RouteConfig[] = [
     component: lazy(() => import("../features/novel/pages/NovelEditor")),
     name: "novel-editor",
   },
+  {
+    path: "/comic",
+    component: lazy(() => import("../features/comic/pages/ComicHome")),
+    name: "comic",
+  },
+  {
+    path: "/comic/:id",
+    component: lazy(() => import("../features/comic/pages/ComicEditor")),
+    name: "comic-editor",
+  },
 ];
 
 // 根据路径获取路由配置

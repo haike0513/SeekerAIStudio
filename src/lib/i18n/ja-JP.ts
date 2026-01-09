@@ -5,6 +5,7 @@ export default {
       inference: "推論",
       chat: "AI チャット",
       novel: "小説",
+      comic: "漫画作成",
       settings: "設定",
       models: "モデル管理",
       history: "履歴",

@@ -21,6 +21,7 @@ gantt
     
     section 阶段 3: 应用化工场 (App Factory)
     AIGC 小说创作助手 (Novel Agent)   :        task_novel, 2026-04-15, 2026-06-01
+    AIGC 漫画创作助手 (Comic Agent)   :        task_comic, 2026-05-15, 2026-07-01
     工作流封装为 App                  :        task7, 2026-05-01, 2026-06-15
     多 Agent 协作编排                 :        task8, 2026-06-01, 2026-07-15
     Web3 资产发行 (Agent NFT)         :        task9, 2026-07-01, 2026-08-30
@@ -51,6 +52,10 @@ gantt
     - [ ] 核心编辑器与上下文注入
     - [ ] 角色/大纲管理侧边栏
     - [ ] 导出功能 (EPUB/PDF)
+- [ ] **AIGC 漫画助手 (Vertical App)**:
+    - [ ] 剧本转分镜 (Script to Storyboard)
+    - [ ] 角色一致性控制 (Character Consistency / LoRA)
+    - [ ] 漫画面板编辑器 (Panel Editor with Image Gen)
 - [ ] **Agent 协作**: 允许一个工作流调用另一个工作流（Sub-flow Agent）。
 - [ ] **市场集成**: 允许交易配置好的 Agent 包（包含 Prompt, Tools 配置, 模型偏好）。
 

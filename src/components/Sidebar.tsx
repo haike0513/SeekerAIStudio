@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Book
+  Book,
+  Palette
 } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -65,6 +66,14 @@ export default function Sidebar(props: SidebarProps) {
       id: "novel",
       icon: Book,
       label: t("app.sidebar.novel"),
+      onClick: () => {
+        setIsMobileOpen(false);
+      },
+    },
+    {
+      id: "comic",
+      icon: Palette,
+      label: t("app.sidebar.comic"),
       onClick: () => {
         setIsMobileOpen(false);
       },
