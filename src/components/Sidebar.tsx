@@ -15,7 +15,8 @@ import {
   X,
   Book,
   Palette,
-  Music
+  Music,
+  Film
 } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -83,6 +84,14 @@ export default function Sidebar(props: SidebarProps) {
       id: "audio",
       icon: Music,
       label: t("app.sidebar.audio"),
+      onClick: () => {
+        setIsMobileOpen(false);
+      },
+    },
+    {
+      id: "video",
+      icon: Film,
+      label: t("app.sidebar.video"),
       onClick: () => {
         setIsMobileOpen(false);
       },

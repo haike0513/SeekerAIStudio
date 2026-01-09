@@ -7,6 +7,7 @@ export default {
       novel: "小説",
       comic: "漫画作成",
       audio: "オーディオスタジオ",
+      video: "ビデオスタジオ",
       settings: "設定",
       models: "モデル管理",
       history: "履歴",

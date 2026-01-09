@@ -69,6 +69,16 @@ export const routes: RouteConfig[] = [
     component: lazy(() => import("../features/audio/pages/AudioEditor")),
     name: "audio-editor",
   },
+  {
+    path: "/video",
+    component: lazy(() => import("../features/video/pages/VideoHome")),
+    name: "video",
+  },
+  {
+    path: "/video/:id",
+    component: lazy(() => import("../features/video/pages/VideoEditor")),
+    name: "video-editor",
+  },
 ];
 
 // 根据路径获取路由配置

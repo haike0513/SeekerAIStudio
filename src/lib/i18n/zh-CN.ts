@@ -7,6 +7,7 @@ export default {
       novel: "小说",
       comic: "漫画制作",
       audio: "音频工坊",
+      video: "视频创作",
       settings: "设置",
       models: "模型管理",
       history: "历史记录",

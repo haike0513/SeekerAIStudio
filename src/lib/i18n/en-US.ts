@@ -7,6 +7,7 @@ export default {
       novel: "Novel",
       comic: "Comic Creator",
       audio: "Audio Studio",
+      video: "Video Studio",
       settings: "Settings",
       models: "Model Management",
       history: "History",
