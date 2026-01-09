@@ -4,6 +4,7 @@ export default {
     sidebar: {
       inference: "推論",
       chat: "AI チャット",
+      novel: "小説",
       settings: "設定",
       models: "モデル管理",
       history: "履歴",

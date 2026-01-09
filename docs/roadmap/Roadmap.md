@@ -20,6 +20,7 @@ gantt
     Agent 记忆管理 (RAG 基础)         :        task6, 2026-03-15, 2026-04-30
     
     section 阶段 3: 应用化工场 (App Factory)
+    AIGC 小说创作助手 (Novel Agent)   :        task_novel, 2026-04-15, 2026-06-01
     工作流封装为 App                  :        task7, 2026-05-01, 2026-06-15
     多 Agent 协作编排                 :        task8, 2026-06-01, 2026-07-15
     Web3 资产发行 (Agent NFT)         :        task9, 2026-07-01, 2026-08-30
@@ -46,6 +47,10 @@ gantt
 ### 🏭 第三阶段：应用运行与生态 (Q3 2026)
 **核心目标：** 让工作流“走出”编辑器，成为独立可用的应用。
 - [ ] **Runtime App View**: "用户模式"视图，隐藏节点编辑器，只展示 AI 生成的交互界面（Chat UI 或 Form UI）。
+- [ ] **AIGC 小说助手 (Vertical App)**:
+    - [ ] 核心编辑器与上下文注入
+    - [ ] 角色/大纲管理侧边栏
+    - [ ] 导出功能 (EPUB/PDF)
 - [ ] **Agent 协作**: 允许一个工作流调用另一个工作流（Sub-flow Agent）。
 - [ ] **市场集成**: 允许交易配置好的 Agent 包（包含 Prompt, Tools 配置, 模型偏好）。
 

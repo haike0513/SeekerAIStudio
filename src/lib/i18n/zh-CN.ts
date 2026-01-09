@@ -4,6 +4,7 @@ export default {
     sidebar: {
       inference: "推理",
       chat: "AI 对话",
+      novel: "小说",
       settings: "设置",
       models: "模型管理",
       history: "历史记录",

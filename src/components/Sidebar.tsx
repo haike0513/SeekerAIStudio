@@ -12,7 +12,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Menu,
-  X
+  X,
+  Book
 } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -56,6 +57,14 @@ export default function Sidebar(props: SidebarProps) {
       id: "workflow",
       icon: GitBranch,
       label: t("app.sidebar.workflow"),
+      onClick: () => {
+        setIsMobileOpen(false);
+      },
+    },
+    {
+      id: "novel",
+      icon: Book,
+      label: t("app.sidebar.novel"),
       onClick: () => {
         setIsMobileOpen(false);
       },

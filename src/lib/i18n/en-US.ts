@@ -4,6 +4,7 @@ export default {
     sidebar: {
       inference: "Inference",
       chat: "AI Chat",
+      novel: "Novel",
       settings: "Settings",
       models: "Model Management",
       history: "History",

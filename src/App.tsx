@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { Router, Route, useLocation } from "@solidjs/router";
 import { useTheme } from "./lib/theme";
 import Sidebar from "./components/Sidebar";
@@ -18,7 +18,8 @@ function Layout(props: { children: any }) {
   // 检查当前路由，决定是否使用 container
   const location = useLocation();
   const isFullScreenPage = () => 
-    location.pathname.startsWith("/workflow/") && location.pathname !== "/workflow";
+    (location.pathname.startsWith("/workflow/") && location.pathname !== "/workflow") ||
+    (location.pathname.startsWith("/novel/") && location.pathname !== "/novel");
 
   return (
     <div class="flex h-screen w-screen overflow-hidden bg-background">

@@ -1,4 +1,4 @@
-import type { Component } from "solid-js";
+import { Component, lazy } from "solid-js";
 import InferencePage from "./inference";
 import SettingsPage from "./settings";
 import WorkflowPage from "./workflow";
@@ -38,6 +38,16 @@ export const routes: RouteConfig[] = [
     path: "/chat",
     component: ChatPage,
     name: "chat",
+  },
+  {
+    path: "/novel",
+    component: lazy(() => import("../features/novel/pages/NovelHome")),
+    name: "novel",
+  },
+  {
+    path: "/novel/:id",
+    component: lazy(() => import("../features/novel/pages/NovelEditor")),
+    name: "novel-editor",
   },
 ];
 
