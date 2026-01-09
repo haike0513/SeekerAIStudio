@@ -44,6 +44,7 @@ import {
   CheckCircle,
 } from "lucide-solid";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { WorkflowPropertyPanel } from "@/components/WorkflowPropertyPanel";
 import { getActiveProvider } from "@/lib/store/ai-config";
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
@@ -173,7 +174,7 @@ export const WorkflowEditorPage: Component = () => {
       }
 
       const queue = [...startNodes];
-      const visited = new Set<string>();
+
       // Context to pass data between nodes
       const context: Record<string, any> = {
          // Global helpers
@@ -218,33 +219,42 @@ export const WorkflowEditorPage: Component = () => {
           // --- EXECUTION SWITCH ---
           switch (currentNode.type) {
             case "agent": {
-               const model = currentNode.data.model || "gpt-4o";
-               const inputs = getInputs(currentNode.id).map(i => typeof i === 'string' ? i : JSON.stringify(i)).join("\n---\n");
-               const prompt = inputs 
-                  ? `Context:\n${inputs}\n\nTask: ${currentNode.data.label}`
-                  : `Task: ${currentNode.data.label}`;
-              
-               if (currentNode.data.systemPrompt) {
-                  // If explicit system prompt
-               }
+                addLog('info', `Agent ${currentNode.id} thinking...`, currentNode.id);
 
-               const result = await streamText({
-                  model: openai(model),
-                  messages: [
-                      { role: "system", content: currentNode.data.role || "You are a helpful assistant." },
-                      { role: "user", content: prompt }
-                  ],
-                });
+                // Prompt Template Processing
+                const input = getPrevOutput(currentNode.id); // Get input from previous node
+                let promptContent = typeof input === 'string' ? input : JSON.stringify(input);
 
-                let fullText = "";
-                for await (const delta of result.textStream) {
-                   if (!isRunning()) break;
-                   fullText += delta;
+                if (currentNode.data.userPromptTemplate) {
+                  // Basic template engine: replace {{input}} with actual input
+                  // We can extend this to support more context variables later
+                  promptContent = currentNode.data.userPromptTemplate.replace(
+                    /\{\{input\}\}/g,
+                    promptContent
+                  );
                 }
-                output = fullText;
+
+                // Call AI SDK
+                const { textStream } = await streamText({
+                  model: openai(currentNode.data.model || 'gpt-4'),
+                  messages: [
+                    { role: "system", content: currentNode.data.role || "You are a helpful assistant." },
+                    { role: "user", content: promptContent }
+                  ]
+                });
+                
+                let text = '';
+                for await (const chunk of textStream) {
+                   text += chunk;
+                   // Optional: Live update node status or show partial output?
+                   // managing live state update for every token might be heavy, 
+                   // maybe update every N chars or simple use final result
+                }
+                
+                output = text;
+                addLog('success', `Agent completed.`, currentNode.id, { outputLength: text.length });
                 break;
             }
-
             case "script": {
                // Safe-ish eval using new Function
                const code = currentNode.data.code || "return 'No code provided';";
@@ -1364,6 +1374,16 @@ export const WorkflowEditorPage: Component = () => {
               </DialogContent>
           </Dialog>
         </Flow>
+
+        {/* Property Panel Sidebar */}
+        <Show when={selectedNodeId()}>
+            <WorkflowPropertyPanel
+                selectedNode={nodes().find((n) => n.id === selectedNodeId()) || null}
+                onClose={() => setSelectedNodeId(null)}
+                onUpdateNodeData={updateNodeData}
+            />
+        </Show>
+
 
 
       </div>
