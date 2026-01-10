@@ -1,10 +1,11 @@
 import { Component, For, Show, createSignal } from "solid-js";
 import { useComicStore, ComicPanel } from "../stores/comicStore";
 import { Button } from "../../../components/ui/button";
-import { Image, Type, Sparkles, FileText, Wand2 } from "lucide-solid";
+import { Image, Type, Sparkles, FileText, Wand2, Download, Save, Eye, Check, X } from "lucide-solid";
 import { Textarea } from "../../../components/ui/textarea";
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
+import { Dialog, DialogContent } from "../../../components/ui/dialog";
 import { generateImage } from "ai";
 import { registry } from "@/lib/ai/registry";
 
@@ -57,9 +58,10 @@ const PanelView: Component<{ panel: ComicPanel }> = (props) => {
 }
 
 const ComicEditor: Component = () => {
-  const { activePage } = useComicStore();
-  const [prompt, setPrompt] = createSignal("");
-  const [generatedImages, setGeneratedImages] = createSignal<{ url?: string; base64?: string }[]>([]);
+  const { activePage, addGeneratedImage } = useComicStore();
+  const [prompt, setPrompt] = createSignal("生成几位动漫风格的，具有不同鲜明特色的仙侠背景的女主形象");
+  const [generatedImages, setGeneratedImages] = createSignal<{ url?: string; base64?: string; prompt?: string }[]>([]);
+  const [previewImage, setPreviewImage] = createSignal<{ url?: string; base64?: string; prompt?: string } | null>(null);
   const [isGenerating, setIsGenerating] = createSignal(false);
 
   const handleGlobalGenerate = async () => {
@@ -73,7 +75,12 @@ const ComicEditor: Component = () => {
             n: 1,
             size: '1024x1024',
         });
-        setGeneratedImages(images);
+        
+        const newImages = images.map(img => (Object.assign(img, { prompt: prompt() })));
+        setGeneratedImages(prev => [...newImages, ...prev]);
+
+        // Auto-save to store if needed, but for now we let user choose to save
+        // newImages.forEach(img => addGeneratedImage(img, prompt()));
     } catch (error) {
         console.error("Failed to generate image:", error);
     } finally {
@@ -146,18 +153,48 @@ const ComicEditor: Component = () => {
                             </Button>
 
                             <Show when={generatedImages().length > 0}>
-                                <div class="grid grid-cols-2 gap-2 pt-2">
+                                <div class="grid grid-cols-2 gap-2 pt-2 max-h-[300px] overflow-y-auto pr-1">
                                     <For each={generatedImages()}>
-                                        {(img) => (
-                                            <div class="aspect-square rounded-md overflow-hidden border border-border bg-muted relative group">
-                                                <img src={img.url || `data:image/png;base64,${img.base64}`} class="w-full h-full object-cover" />
-                                                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <Button size="icon" variant="secondary" class="h-8 w-8 rounded-full">
-                                                        <Sparkles class="h-4 w-4" />
-                                                    </Button>
+                                        {(img) => {
+                                            const imgSrc = img.url || `data:image/png;base64,${img.base64}`;
+                                            const [saved, setSaved] = createSignal(false);
+                                            
+                                            const handleSave = () => {
+                                                addGeneratedImage(img, img.prompt || "Generated Image");
+                                                setSaved(true);
+                                                setTimeout(() => setSaved(false), 2000);
+                                            };
+
+                                            const handleDownload = () => {
+                                                const link = document.createElement("a");
+                                                link.href = imgSrc;
+                                                link.download = `generated-${Date.now()}.png`;
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+                                            };
+
+                                            return (
+                                                <div class="aspect-square rounded-md overflow-hidden border border-border bg-muted relative group">
+                                                    <img src={imgSrc} class="w-full h-full object-cover" />
+                                                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                                                        <div class="flex gap-1">
+                                                            <Button size="icon" variant="secondary" class="h-7 w-7 rounded-full" onClick={() => setPreviewImage(img)} title="Preview">
+                                                                <Eye class="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button size="icon" variant="secondary" class="h-7 w-7 rounded-full" onClick={handleSave} title="Save to Library">
+                                                                <Show when={saved()} fallback={<Save class="h-3.5 w-3.5" />}>
+                                                                    <Check class="h-3.5 w-3.5 text-green-600" />
+                                                                </Show>
+                                                            </Button>
+                                                        </div>
+                                                        <Button size="icon" variant="ghost" class="h-6 w-6 text-white/70 hover:text-white" onClick={handleDownload} title="Download">
+                                                            <Download class="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        }}
                                     </For>
                                 </div>
                             </Show>
@@ -196,7 +233,55 @@ const ComicEditor: Component = () => {
                     </div>
                 )}
             </Show>
-        </div>
+    </div>
+
+    {/* Preview Dialog */}
+    <Dialog open={!!previewImage()} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent class="max-w-3xl w-full p-0 overflow-hidden bg-black/90 border-none">
+            <div class="relative w-full h-[80vh] flex items-center justify-center">
+                <Show when={previewImage()}>
+                    {(img) => (
+                        <>
+                            <img 
+                                src={img().url || `data:image/png;base64,${img().base64}`} 
+                                class="max-w-full max-h-full object-contain" 
+                            />
+                            <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
+                                <p class="text-sm font-medium line-clamp-2">{img().prompt}</p>
+                                <div class="flex gap-2 mt-2 justify-end">
+                                    <Button size="sm" variant="secondary" onClick={() => {
+                                        const link = document.createElement("a");
+                                        const src = img().url || `data:image/png;base64,${img().base64}`;
+                                        link.href = src!;
+                                        link.download = `generated-${Date.now()}.png`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                    }}>
+                                        <Download class="mr-2 h-4 w-4" /> Download
+                                    </Button>
+                                    <Button size="sm" onClick={() => {
+                                         addGeneratedImage(img(), img().prompt || "Generated Image");
+                                         setPreviewImage(null);
+                                    }}>
+                                        <Save class="mr-2 h-4 w-4" /> Save to Library
+                                    </Button>
+                                </div>
+                            </div>
+                            <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                class="absolute top-2 right-2 text-white hover:bg-white/20" 
+                                onClick={() => setPreviewImage(null)}
+                            >
+                                <X class="h-5 w-5" />
+                            </Button>
+                        </>
+                    )}
+                </Show>
+            </div>
+        </DialogContent>
+    </Dialog>
     </div>
   );
 };
