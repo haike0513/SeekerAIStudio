@@ -1,17 +1,28 @@
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createSignal } from "solid-js";
 import { useComicStore, ComicPanel } from "../stores/comicStore";
 import { Button } from "../../../components/ui/button";
-import { Image, Type, Sparkles } from "lucide-solid";
+import { Image, Type, Sparkles, FileText, Wand2 } from "lucide-solid";
+import { Textarea } from "../../../components/ui/textarea";
+import { Label } from "../../../components/ui/label";
+import { Input } from "../../../components/ui/input";
+import { generateImage } from "ai";
+import { registry } from "@/lib/ai/registry";
 
 const PanelView: Component<{ panel: ComicPanel }> = (props) => {
-    const { setPanelStatus, setPanelImage } = useComicStore();
+    const { setPanelStatus, setPanelImage, activePage } = useComicStore();
 
     const handleGenerate = async () => {
+        const page = activePage();
+        if (!page) return;
+        
         setPanelStatus(props.panel.id, "generating");
-        // Mock Generation
+        
+        // Mock Generation - Combining page prompt and panel prompt for better context
+        const fullPrompt = `${page.prompt}. ${props.panel.prompt}`;
+        
         setTimeout(() => {
-            // Placeholder Image
-            setPanelImage(props.panel.id, `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(props.panel.prompt.substring(0, 20))}`);
+            // Placeholder Image using the combined prompt
+            setPanelImage(props.panel.id, `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(fullPrompt.substring(0, 30))}`);
         }, 2000);
     };
 
@@ -47,6 +58,28 @@ const PanelView: Component<{ panel: ComicPanel }> = (props) => {
 
 const ComicEditor: Component = () => {
   const { activePage } = useComicStore();
+  const [prompt, setPrompt] = createSignal("");
+  const [generatedImages, setGeneratedImages] = createSignal<{ url?: string; base64?: string }[]>([]);
+  const [isGenerating, setIsGenerating] = createSignal(false);
+
+  const handleGlobalGenerate = async () => {
+    if (!prompt()) return;
+    
+    setIsGenerating(true);
+    try {
+        const { images } = await generateImage({
+            model: registry.imageModel("gemini:gemini-3-pro-image"),
+            prompt: prompt(),
+            n: 1,
+            size: '1024x1024',
+        });
+        setGeneratedImages(images);
+    } catch (error) {
+        console.error("Failed to generate image:", error);
+    } finally {
+        setIsGenerating(false);
+    }
+  };
 
   return (
     <div class="flex h-[calc(100vh-4rem)] bg-muted/30">
@@ -91,9 +124,78 @@ const ComicEditor: Component = () => {
         </div>
 
         {/* Right: Properties */}
-        <div class="w-64 border-l bg-background p-4 hidden lg:block">
-            <h3 class="font-semibold mb-2">Properties</h3>
-            <p class="text-xs text-muted-foreground">Select a panel to edit prompts.</p>
+        <div class="w-80 border-l bg-background p-6 hidden lg:block overflow-y-auto">
+            <h3 class="font-bold text-lg mb-6 flex items-center gap-2">
+                <FileText class="h-5 w-5" /> Properties
+            </h3>
+            
+            <Show when={activePage()}>
+                {(page) => (
+                    <div class="space-y-6">
+                        <div class="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
+                            <Label class="text-xs font-bold uppercase tracking-wider text-primary/70">AI Generator</Label>
+                            <Input 
+                                placeholder="What should I generate?" 
+                                value={prompt()}
+                                onInput={(e) => setPrompt(e.currentTarget.value)}
+                                class="h-9 bg-background/50"
+                            />
+                            <Button class="w-full h-9" size="sm" onClick={handleGlobalGenerate} disabled={!prompt() || isGenerating()}>
+                                <Wand2 class={`mr-2 h-4 w-4 ${isGenerating() ? "animate-spin" : ""}`} /> 
+                                {isGenerating() ? "Generating..." : "Generate"}
+                            </Button>
+
+                            <Show when={generatedImages().length > 0}>
+                                <div class="grid grid-cols-2 gap-2 pt-2">
+                                    <For each={generatedImages()}>
+                                        {(img) => (
+                                            <div class="aspect-square rounded-md overflow-hidden border border-border bg-muted relative group">
+                                                <img src={img.url || `data:image/png;base64,${img.base64}`} class="w-full h-full object-cover" />
+                                                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <Button size="icon" variant="secondary" class="h-8 w-8 rounded-full">
+                                                        <Sparkles class="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </For>
+                                </div>
+                            </Show>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="page-prompt" class="text-sm font-medium">Page Concept/Style</Label>
+                            <Textarea 
+                                id="page-prompt"
+                                placeholder="Describe the overall style and theme for this page..."
+                                value={page().prompt}
+                                onInput={(e) => {
+                                    const { updatePagePrompt } = useComicStore();
+                                    updatePagePrompt(e.currentTarget.value);
+                                }}
+                                class="min-h-[100px] resize-none"
+                            />
+                            <p class="text-[10px] text-muted-foreground italic">
+                                This prompt helps maintain consistency across all panels on this page.
+                            </p>
+                        </div>
+                        
+                        <div class="pt-4 border-t">
+                            <h4 class="text-sm font-semibold mb-3">Panels ({page().panels.length})</h4>
+                            <div class="space-y-4">
+                                <For each={page().panels}>
+                                    {(panel, index) => (
+                                        <div class="p-3 rounded-lg bg-muted/50 text-xs border border-transparent hover:border-primary/20 transition-all">
+                                            <div class="font-medium mb-1">Panel {index() + 1}</div>
+                                            <p class="text-muted-foreground line-clamp-2">{panel.prompt}</p>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Show>
         </div>
     </div>
   );

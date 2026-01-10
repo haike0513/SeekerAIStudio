@@ -1,6 +1,7 @@
 import { createProviderRegistry } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { lmstudio } from "./provider/lmstudio";
-
+import { geminiProvider, geminiOpenAIProvider } from "./provider/gemini";
 /**
  * AI Provider Registry
  * 
@@ -8,24 +9,23 @@ import { lmstudio } from "./provider/lmstudio";
  * 
  * 使用示例:
  * - registry.languageModel('lmstudio:qwen/qwen3-vl-8b')
- * - registry.languageModel('lmstudio:gpt-4')
+ * - registry.imageModel('openai:dall-e-3')
  * 
  * 添加新的 Provider 示例:
  * ```ts
  * import { createOpenAI } from '@ai-sdk/openai';
- * import { createAnthropic } from '@ai-sdk/anthropic';
  * 
  * export const registry = createProviderRegistry({
  *   lmstudio,
  *   openai: createOpenAI({ apiKey: process.env.OPENAI_API_KEY }),
- *   anthropic: createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
  * });
  * ```
  */
 export const registry = createProviderRegistry({
   lmstudio,
-  // 可以在这里添加更多 providers:
-  // openai: createOpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-  // anthropic: createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  gemini: geminiOpenAIProvider,
+  openai: createOpenAI({
+    apiKey: (import.meta as any).env?.VITE_OPENAI_API_KEY || "",
+  }),
 });
 

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk/google':
+        specifier: ^3.0.6
+        version: 3.0.6(zod@4.2.1)
       '@ai-sdk/openai':
         specifier: ^3.0.7
         version: 3.0.7(zod@4.2.1)
@@ -21,8 +24,8 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1(ai@6.0.3(zod@4.2.1))(solid-js@1.9.10)
       '@ensolid/radix':
-        specifier: ^0.0.0
-        version: 0.0.0(solid-js@1.9.10)
+        specifier: ^0.0.1
+        version: 0.0.1(solid-js@1.9.10)
       '@ensolid/solidflow':
         specifier: ^0.0.2
         version: 0.0.2(solid-js@1.9.10)
@@ -146,6 +149,12 @@ packages:
 
   '@ai-sdk/gateway@3.0.2':
     resolution: {integrity: sha512-giJEg9ob45htbu3iautK+2kvplY2JnTj7ir4wZzYSQWvqGatWfBBfDuNCU5wSJt9BCGjymM5ZS9ziD42JGCZBw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@3.0.6':
+    resolution: {integrity: sha512-Nr7E+ouWd/bKO9SFlgLnJJ1+fiGHC07KAeFr08faT+lvkECWlxVox3aL0dec8uCgBDUghYbq7f4S5teUrCc+QQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -284,8 +293,8 @@ packages:
       ai: ^6.0.0
       solid-js: ^1.9.9
 
-  '@ensolid/radix@0.0.0':
-    resolution: {integrity: sha512-C7L7g9z6R6nudrEHyUCxiWssEc+kQ7i+SKrjZHukNECsKWX77EpU39FeLb/MWrNQYDoeOZrj6nsno8LwQ6U4uA==}
+  '@ensolid/radix@0.0.1':
+    resolution: {integrity: sha512-usYUBBgGjLTI3SCEA6ybvb7Yk2ycwpriM5TTETElO7oo3g6L0p8yx1mL7QkNmeF2az5+iON1serOmXypoz8mgg==}
     peerDependencies:
       solid-js: ^1.9.9
 
@@ -1441,6 +1450,12 @@ snapshots:
       '@vercel/oidc': 3.0.5
       zod: 4.2.1
 
+  '@ai-sdk/google@3.0.6(zod@4.2.1)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.2
+      '@ai-sdk/provider-utils': 4.0.4(zod@4.2.1)
+      zod: 4.2.1
+
   '@ai-sdk/openai-compatible@2.0.0-beta.60(zod@4.2.1)':
     dependencies:
       '@ai-sdk/provider': 3.0.0-beta.32
@@ -1607,7 +1622,7 @@ snapshots:
       ai: 6.0.3(zod@4.2.1)
       solid-js: 1.9.10
 
-  '@ensolid/radix@0.0.0(solid-js@1.9.10)':
+  '@ensolid/radix@0.0.1(solid-js@1.9.10)':
     dependencies:
       solid-js: 1.9.10
 
