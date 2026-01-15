@@ -92,7 +92,19 @@ pub fn run() {
             commands::models::search_remote_models,
             commands::models::download_model,
             // 统一推理命令
-            commands::gguf::unified_inference
+            commands::gguf::unified_inference,
+            // 存储相关命令
+            commands::storage::get_app_paths,
+            commands::storage::read_file,
+            commands::storage::write_file,
+            commands::storage::list_directory,
+            commands::storage::create_directory,
+            commands::storage::delete_file,
+            commands::storage::file_exists,
+            commands::storage::get_system_info,
+            commands::storage::save_setting,
+            commands::storage::get_setting,
+            commands::storage::get_all_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
