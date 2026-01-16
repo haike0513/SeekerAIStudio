@@ -45,6 +45,11 @@ export const routes: RouteConfig[] = [
     name: "novel",
   },
   {
+    path: "/novel/workshop/:id",
+    component: lazy(() => import("../features/novel/pages/NovelWorkshop")),
+    name: "novel-workshop",
+  },
+  {
     path: "/novel/:id",
     component: lazy(() => import("../features/novel/pages/NovelEditor")),
     name: "novel-editor",
