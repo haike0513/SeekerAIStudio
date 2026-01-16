@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Loader2, 
-  Download, 
-  Search, 
-  RefreshCw, 
+import {
+  Loader2,
+  Download,
+  Search,
+  RefreshCw,
   HardDrive,
   AlertCircle,
   CheckCircle2
@@ -18,6 +18,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { OllamaManager } from "@/components/OllamaManager";
 
 interface LocalModelInfo {
   name: string;
@@ -81,7 +82,7 @@ export default function ModelManagementPage() {
   function getModelFolderPath(filePath: string): string {
     const pathParts = filePath.split(/[/\\]/);
     // 查找 "gguf" 或 "safetensors" 的位置
-    const typeIndex = pathParts.findIndex(part => 
+    const typeIndex = pathParts.findIndex(part =>
       part.toLowerCase() === "gguf" || part.toLowerCase() === "safetensors"
     );
     if (typeIndex >= 0 && typeIndex < pathParts.length - 2) {
@@ -173,7 +174,7 @@ export default function ModelManagementPage() {
   // 下载模型
   async function downloadModel(repoId: string, filename: string) {
     const downloadKey = `${repoId}/${filename}`;
-    
+
     if (downloading().has(downloadKey)) {
       setMessage(t("models.downloadInProgress"));
       return;
@@ -187,7 +188,7 @@ export default function ModelManagementPage() {
         repo_id: repoId,
         filename,
       };
-      
+
       const response = await invoke<{
         success: boolean;
         message: string;
@@ -236,10 +237,16 @@ export default function ModelManagementPage() {
       <h1 class="text-3xl font-bold mb-6">{t("models.title")}</h1>
 
       <Tabs defaultValue="local" class="w-full">
-        <TabsList class="grid w-full grid-cols-2">
+        <TabsList class="grid w-full grid-cols-3">
           <TabsTrigger value="local">{t("models.localModels")}</TabsTrigger>
+          <TabsTrigger value="ollama">Ollama</TabsTrigger>
           <TabsTrigger value="remote">{t("models.remoteModels")}</TabsTrigger>
         </TabsList>
+
+        {/* Ollama 模型标签页 */}
+        <TabsContent value="ollama" class="space-y-4">
+          <OllamaManager />
+        </TabsContent>
 
         {/* 本地模型标签页 */}
         <TabsContent value="local" class="space-y-4">

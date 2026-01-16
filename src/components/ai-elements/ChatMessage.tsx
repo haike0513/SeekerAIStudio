@@ -67,13 +67,13 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
             data-role={props.message.role}
         >
             {/* 头像 */}
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
                 <div
                     class={`w-8 h-8 rounded-full flex items-center justify-center ${isUser()
-                            ? "bg-primary text-primary-foreground"
-                            : isSystem()
-                                ? "bg-accent text-accent-foreground"
-                                : "bg-gradient-to-br from-violet-500 to-purple-600 text-white"
+                        ? "bg-primary text-primary-foreground"
+                        : isSystem()
+                            ? "bg-accent text-accent-foreground"
+                            : "bg-linear-to-br from-violet-500 to-purple-600 text-white"
                         }`}
                 >
                     <Show when={isUser()} fallback={
@@ -131,8 +131,8 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                 <Show when={props.showActions !== false && !props.isStreaming}>
                     <div
                         class={`flex items-center gap-1 mt-2 transition-opacity ${isUser()
-                                ? "opacity-0 group-hover:opacity-100"
-                                : "opacity-60 group-hover:opacity-100"
+                            ? "opacity-0 group-hover:opacity-100"
+                            : "opacity-60 group-hover:opacity-100"
                             }`}
                     >
                         {/* 复制 */}
