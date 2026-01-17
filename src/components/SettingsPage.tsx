@@ -24,6 +24,7 @@ import { ArrowLeft } from "lucide-solid";
 import { useNavigate } from "@solidjs/router";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
+import { SeekerSwitch } from "./SeekerSwitch";
 
 export default function SettingsPage() {
   const { t } = useI18n();
@@ -549,6 +550,10 @@ function FeatureModulesControl() {
             <div class="font-medium">{feature.name}</div>
             <div class="text-sm text-muted-foreground">{feature.description}</div>
           </div>
+          <SeekerSwitch
+            checked={enabledFeatures()[feature.id] ?? true}
+            class="flex items-center gap-x-2"
+          />
           <Switch
             checked={enabledFeatures()[feature.id] ?? true}
             onChange={(checked) => toggleFeature(feature.id, checked)}
