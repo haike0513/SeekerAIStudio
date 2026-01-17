@@ -20,9 +20,10 @@ import {
 } from "lucide-solid";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { useFeatures, type FeatureId } from "@/lib/features";
 
 interface SidebarItem {
-  id: string;
+  id: FeatureId;
   icon: any;
   label: string;
   onClick?: () => void;
@@ -40,11 +41,12 @@ interface SidebarProps {
 export default function Sidebar(props: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = createSignal(false);
   const { t } = useI18n();
+  const { isFeatureEnabled } = useFeatures();
 
   // 使用 createMemo 确保 sidebarItems 响应语言变化
   const sidebarItems = createMemo<SidebarItem[]>(() => [
     {
-      id: "inference",
+      id: "inference" as FeatureId,
       icon: Brain,
       label: t("app.sidebar.inference"),
       onClick: () => {
@@ -52,7 +54,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "chat",
+      id: "chat" as FeatureId,
       icon: MessageSquare,
       label: t("app.sidebar.chat"),
       onClick: () => {
@@ -60,7 +62,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "workflow",
+      id: "workflow" as FeatureId,
       icon: GitBranch,
       label: t("app.sidebar.workflow"),
       onClick: () => {
@@ -68,7 +70,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "novel",
+      id: "novel" as FeatureId,
       icon: Book,
       label: t("app.sidebar.novel"),
       onClick: () => {
@@ -76,7 +78,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "comic",
+      id: "comic" as FeatureId,
       icon: Palette,
       label: t("app.sidebar.comic"),
       onClick: () => {
@@ -84,7 +86,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "audio",
+      id: "audio" as FeatureId,
       icon: Music,
       label: t("app.sidebar.audio"),
       onClick: () => {
@@ -92,7 +94,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "video",
+      id: "video" as FeatureId,
       icon: Film,
       label: t("app.sidebar.video"),
       onClick: () => {
@@ -100,7 +102,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "models",
+      id: "models" as FeatureId,
       icon: Database,
       label: t("app.sidebar.models"),
       onClick: () => {
@@ -108,7 +110,7 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
     {
-      id: "history",
+      id: "history" as FeatureId,
       icon: History,
       label: t("app.sidebar.history"),
       onClick: () => {
@@ -116,6 +118,11 @@ export default function Sidebar(props: SidebarProps) {
       },
     },
   ]);
+
+  // 过滤出已启用的功能模块
+  const enabledSidebarItems = createMemo(() => 
+    sidebarItems().filter(item => isFeatureEnabled(item.id))
+  );
 
   return (
     <>
@@ -193,7 +200,7 @@ export default function Sidebar(props: SidebarProps) {
     
               {/* Navigation */}
               <nav class="flex-1 overflow-y-auto space-y-1">
-                <For each={sidebarItems()}>
+                <For each={enabledSidebarItems()}>
                   {(item) => {
                     const href = item.id === "inference" ? "/" : `/${item.id}`;
                     return (
@@ -289,7 +296,7 @@ export default function Sidebar(props: SidebarProps) {
               </Button>
             </div>
             <nav class="flex-1 overflow-y-auto p-4 space-y-1">
-              <For each={sidebarItems()}>
+              <For each={enabledSidebarItems()}>
                 {(item) => {
                   const href = item.id === "inference" ? "/" : `/${item.id}`;
                   return (

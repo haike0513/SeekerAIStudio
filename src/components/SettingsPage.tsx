@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/switch";
 import { useI18n, type Language } from "@/lib/i18n";
 import { useTheme, type Theme } from "@/lib/theme";
+import { useFeatures, type FeatureId } from "@/lib/features";
 import { ArrowLeft } from "lucide-solid";
 import { useNavigate } from "@solidjs/router";
 import { invoke } from "@tauri-apps/api/core";
@@ -90,6 +91,17 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <ServerControl />
+          </CardContent>
+        </Card>
+
+        {/* Feature Modules Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("app.settings.features.title")}</CardTitle>
+            <CardDescription>{t("app.settings.features.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FeatureModulesControl />
           </CardContent>
         </Card>
       </div>
@@ -466,6 +478,89 @@ function ServerControl() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface FeatureModule {
+  id: FeatureId;
+  name: string;
+  description: string;
+}
+
+function FeatureModulesControl() {
+  const { t } = useI18n();
+  const { enabledFeatures, toggleFeature } = useFeatures();
+  
+  // 定义所有功能模块
+  const featureModules = createMemo<FeatureModule[]>(() => [
+    {
+      id: "inference" as FeatureId,
+      name: t("app.settings.features.inference"),
+      description: t("app.settings.features.inferenceDescription"),
+    },
+    {
+      id: "chat" as FeatureId,
+      name: t("app.settings.features.chat"),
+      description: t("app.settings.features.chatDescription"),
+    },
+    {
+      id: "workflow" as FeatureId,
+      name: t("app.settings.features.workflow"),
+      description: t("app.settings.features.workflowDescription"),
+    },
+    {
+      id: "novel" as FeatureId,
+      name: t("app.settings.features.novel"),
+      description: t("app.settings.features.novelDescription"),
+    },
+    {
+      id: "comic" as FeatureId,
+      name: t("app.settings.features.comic"),
+      description: t("app.settings.features.comicDescription"),
+    },
+    {
+      id: "audio" as FeatureId,
+      name: t("app.settings.features.audio"),
+      description: t("app.settings.features.audioDescription"),
+    },
+    {
+      id: "video" as FeatureId,
+      name: t("app.settings.features.video"),
+      description: t("app.settings.features.videoDescription"),
+    },
+    {
+      id: "models" as FeatureId,
+      name: t("app.settings.features.models"),
+      description: t("app.settings.features.modelsDescription"),
+    },
+    {
+      id: "history" as FeatureId,
+      name: t("app.settings.features.history"),
+      description: t("app.settings.features.historyDescription"),
+    },
+  ]);
+
+  return (
+    <div class="space-y-4">
+      {featureModules().map((feature) => (
+        <div class="flex items-start justify-between gap-4 py-2">
+          <div class="flex-1 space-y-1">
+            <div class="font-medium">{feature.name}</div>
+            <div class="text-sm text-muted-foreground">{feature.description}</div>
+          </div>
+          <Switch
+            checked={enabledFeatures()[feature.id] ?? true}
+            onChange={(checked) => toggleFeature(feature.id, checked)}
+            class="flex items-center gap-x-2"
+          >
+            <SwitchInput />
+            <SwitchControl>
+              <SwitchThumb />
+            </SwitchControl>
+          </Switch>
+        </div>
+      ))}
     </div>
   );
 }
